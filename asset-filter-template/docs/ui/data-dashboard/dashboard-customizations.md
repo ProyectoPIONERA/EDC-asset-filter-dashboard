@@ -7,6 +7,7 @@ This file tracks the dashboard changes made in this workspace (compared to upstr
 - Added `ML Assets` route: `/ml-assets`
 - Added `Model Execution` route: `/model-execution`
 - Added `Model Benchmarking` route: `/model-benchmarking`
+- Added `Model Observer` route: `/model-observer`
 - Added menu entries in `DataDashboard/public/config/app-config.json`
 
 ## ML Assets page
@@ -55,6 +56,8 @@ This file tracks the dashboard changes made in this workspace (compared to upstr
 
 - Filter endpoint: `POST {defaultUrl}/api/filter/catalog`
 - Infer endpoint: `POST {defaultUrl}/api/infer`
+- Model observer endpoint: `{defaultUrl}/api/model-observer`
+- Catalog-query evidence is logged as `CATALOG_QUERY_COMPLETED`, not as asset lifecycle evidence.
 - Management fallback for external catalog when filtered response is empty:
   - `POST {managementUrl}/v3/catalog/request`
 
@@ -78,6 +81,19 @@ This file tracks the dashboard changes made in this workspace (compared to upstr
   - optional accuracy
   - score-based ranking and top model summary
 - Added CSV export of benchmark results.
+- Benchmark completion/failure is posted to the model observer journal.
+
+## Model Observer page
+
+- Added model lifecycle evidence browser with views for:
+  - event ledger
+  - asset timeline
+  - agreement evidence
+  - benchmark history
+  - participant summaries
+- Added dashboard service for `/api/model-observer` and connector-context URL resolution.
+- Asset, policy, contract-definition, negotiation, and transfer lifecycle evidence is captured by
+  the connector-side EDC event-router observer, so lifecycle facts are not limited to DataDashboard.
 
 ## Policy compatibility patch (dashboard-core)
 

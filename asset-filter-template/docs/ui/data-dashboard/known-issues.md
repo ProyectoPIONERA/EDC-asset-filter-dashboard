@@ -142,20 +142,37 @@ location.reload();
 - Confirm transfer destination type produced by the flow matches supported endpoint generators.
 - If using proxy/data-plane modules, verify they are enabled symmetrically in both connector runtimes.
 
-## 8) Benchmarking metrics are client-side and non-persistent
+## 8) Benchmarking metrics are client-side; observer history stores run summaries
 
 ### Symptom
-- Benchmark results disappear after page refresh.
+- The live benchmark result table disappears after page refresh.
 - Two runs with the same dataset can differ slightly in latency/throughput values.
 
 ### Why this happens
 - Benchmarking runs in the frontend and sends multiple `POST /api/infer` requests.
 - Metrics are measured from browser-side timing and current runtime load.
-- Results are not stored in a backend benchmark history endpoint.
 
 ### Current behavior
 - Ranking and metrics are shown in-memory in `Model Benchmarking` page.
+- Completion/failure summaries are posted to `/api/model-observer/events`.
+- Historical benchmark summaries are visible in `Model Observer` -> `Benchmarks`.
 - User can export CSV for persistence.
+
+## 8a) Catalog query events are not asset registration events
+
+### Symptom
+- Model Observer shows an event with zero assets even though local assets exist.
+
+### Why this happens
+- `CATALOG_QUERY_COMPLETED` describes an external catalog request from the active connector to its counterparty.
+- It does not describe local asset registration.
+- Local asset create/update/delete is recorded separately by the connector event router as
+  `ASSET_REGISTERED`, `ASSET_UPDATED`, or `ASSET_DELETED`.
+
+### Practical check
+- Use the event category filter:
+  - `catalog` for external catalog query evidence
+  - `asset-lifecycle` for real asset management evidence
 
 ### Practical note
 - For comparable runs, keep environment stable (same connector load, same dataset size, same selected models).

@@ -8,6 +8,7 @@ This folder documents the current GUI implementation based on `DataDashboard`.
 - Contract negotiation actions for external assets
 - Model execution against infer endpoint (`/api/infer`)
 - Model benchmarking against infer endpoint (`/api/infer`)
+- Model observer evidence browser against `/api/model-observer`
 - Benchmarking UX details:
   - schema-compatible model selection gating
   - model search + task filters
@@ -28,6 +29,7 @@ This folder documents the current GUI implementation based on `DataDashboard`.
 - `docs/ui/data-dashboard/negotiation-flow.md`
 - `docs/ui/data-dashboard/model-execution.md`
 - `docs/ui/data-dashboard/model-benchmarking.md`
+- `docs/ui/data-dashboard/model-observer.md`
 - `docs/ui/data-dashboard/custom-dashboard-usage.md`
 - `docs/ui/data-dashboard/known-issues.md`
 
@@ -38,6 +40,8 @@ This folder documents the current GUI implementation based on `DataDashboard`.
 - `DataDashboard/src/app/features/ml-negotiation-progress/`
 - `DataDashboard/src/app/features/model-execution/`
 - `DataDashboard/src/app/features/model-benchmarking/`
+- `DataDashboard/src/app/features/model-observer/`
 - `DataDashboard/src/app/services/dashboard-ml-browser.service.ts`
 - `DataDashboard/src/app/services/dashboard-model-execution.service.ts`
+- `DataDashboard/src/app/services/dashboard-model-observer.service.ts`
 - `DataDashboard/projects/dashboard-core/catalog/src/catalog.service.ts`

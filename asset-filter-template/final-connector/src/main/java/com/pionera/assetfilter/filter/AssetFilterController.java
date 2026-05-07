@@ -17,6 +17,7 @@ package com.pionera.assetfilter.filter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pionera.assetfilter.modelobserver.ModelObserverRegistry;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -35,6 +36,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -94,6 +96,7 @@ public class AssetFilterController {
             var sorted = applySorting(filtered, uriInfo.getQueryParameters());
             var result = rebuildCatalog(responseNode, sorted);
 
+            recordDiscoveryEvent(requestNode, uriInfo, datasets, sorted);
             return Response.ok(mapper.writeValueAsString(result)).build();
         } catch (Exception e) {
             monitor.warning("Catalog filter failed: " + e.getMessage());
@@ -116,6 +119,51 @@ public class AssetFilterController {
             return null;
         }
         return mapper.readTree(response.body());
+    }
+
+    private void recordDiscoveryEvent(JsonNode requestNode,
+                                      UriInfo uriInfo,
+                                      List<JsonNode> discoveredDatasets,
+                                      List<JsonNode> returnedDatasets) {
+        if (!ModelObserverRegistry.isReady()) {
+            return;
+        }
+
+        var event = new LinkedHashMap<String, Object>();
+        event.put("eventType", "CATALOG_QUERY_COMPLETED");
+        event.put("category", "catalog");
+        event.put("status", returnedDatasets.isEmpty() ? "EMPTY" : "COMPLETED");
+        event.put("counterPartyAddress", firstNonBlank(
+                textValue(requestNode, "counterPartyAddress", "edc:counterPartyAddress",
+                        "https://w3id.org/edc/v0.0.1/ns/counterPartyAddress"), null));
+        event.put("protocol", firstNonBlank(
+                textValue(requestNode, "protocol", "edc:protocol",
+                        "https://w3id.org/edc/v0.0.1/ns/protocol"), null));
+        event.put("details", Map.of(
+                "direction", "external-catalog",
+                "discoveredAssetCount", discoveredDatasets.size(),
+                "returnedAssetCount", returnedDatasets.size(),
+                "queryParameters", sanitizeQueryParameters(uriInfo),
+                "returnedAssetIds", returnedDatasets.stream()
+                        .map(this::extractDatasetId)
+                        .filter(value -> value != null && !value.isBlank())
+                        .limit(100)
+                        .toList()
+        ));
+        ModelObserverRegistry.record(event);
+    }
+
+    private Map<String, List<String>> sanitizeQueryParameters(UriInfo uriInfo) {
+        var result = new LinkedHashMap<String, List<String>>();
+        if (uriInfo == null || uriInfo.getQueryParameters() == null) {
+            return result;
+        }
+        uriInfo.getQueryParameters().forEach((key, values) -> result.put(key, List.copyOf(values)));
+        return result;
+    }
+
+    private String extractDatasetId(JsonNode dataset) {
+        return firstNonBlank(textValue(dataset, "@id", "id"), null);
     }
 
     private boolean hasRequiredCatalogFields(JsonNode requestNode) {
@@ -546,6 +594,24 @@ public class AssetFilterController {
             return null;
         }
         return values.get(0);
+    }
+
+    private String textValue(JsonNode node, String... keys) {
+        var valueNode = firstNode(node, keys);
+        if (valueNode == null || valueNode.isNull()) {
+            return null;
+        }
+        if (valueNode.isTextual()) {
+            return valueNode.asText();
+        }
+        return valueNode.toString();
+    }
+
+    private String firstNonBlank(String first, String fallback) {
+        if (first != null && !first.isBlank()) {
+            return first;
+        }
+        return fallback;
     }
 
     private JsonNode firstNode(JsonNode node, String... keys) {

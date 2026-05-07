@@ -1,0 +1,422 @@
+<div class="space-y-4">
+  <section class="card bg-base-300 shadow-xl">
+    <div class="card-body gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="card-title">Model Observer</h2>
+        <button class="btn btn-sm btn-ghost" [disabled]="loading" (click)="refreshAll()">
+          @if (loading) {
+            <span class="loading loading-spinner loading-xs"></span>
+          }
+          Refresh
+        </button>
+      </div>
+
+      <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        <div class="stat rounded-lg bg-base-200 py-2">
+          <div class="stat-title">Events</div>
+          <div class="stat-value text-2xl">{{ totalEvents }}</div>
+        </div>
+        <div class="stat rounded-lg bg-base-200 py-2">
+          <div class="stat-title">Assets</div>
+          <div class="stat-value text-2xl">{{ summary?.assetCount || 0 }}</div>
+        </div>
+        <div class="stat rounded-lg bg-base-200 py-2">
+          <div class="stat-title">Agreements</div>
+          <div class="stat-value text-2xl">{{ summary?.agreementCount || 0 }}</div>
+        </div>
+        <div class="stat rounded-lg bg-base-200 py-2">
+          <div class="stat-title">Sessions</div>
+          <div class="stat-value text-2xl">{{ summary?.usageSessionCount || 0 }}</div>
+        </div>
+        <div class="stat rounded-lg bg-base-200 py-2">
+          <div class="stat-title">Participants</div>
+          <div class="stat-value text-2xl">{{ summary?.participantCount || 0 }}</div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        @for (view of views; track view.value) {
+          <button
+            class="btn btn-sm"
+            [class.btn-primary]="activeView === view.value"
+            [class.btn-soft]="activeView !== view.value"
+            (click)="setView(view.value)"
+          >
+            {{ view.label }}
+          </button>
+        }
+      </div>
+    </div>
+  </section>
+
+  @if (errorMessage) {
+    <div class="alert alert-error">
+      <span>{{ errorMessage }}</span>
+    </div>
+  }
+
+  @if (activeView === 'ledger') {
+    <section class="card bg-base-300 shadow-xl">
+      <div class="card-body gap-4">
+        <div class="flex flex-wrap items-end gap-2">
+          <label class="form-control w-full sm:w-56">
+            <span class="label-text text-xs">Event Type</span>
+            <select class="select select-bordered select-sm" [(ngModel)]="eventTypeFilter">
+              <option value="">All</option>
+              @for (eventType of eventTypeOptions; track eventType) {
+                <option [value]="eventType">{{ eventType }}</option>
+              }
+            </select>
+          </label>
+          <label class="form-control w-full sm:w-44">
+            <span class="label-text text-xs">Category</span>
+            <select class="select select-bordered select-sm" [(ngModel)]="categoryFilter">
+              <option value="">All</option>
+              <option value="catalog">Catalog Queries</option>
+              <option value="asset-lifecycle">Asset Lifecycle</option>
+              <option value="governance">Governance</option>
+              <option value="contract-transfer">Contracts & Transfers</option>
+              <option value="execution">Executions</option>
+              <option value="benchmark">Benchmarks</option>
+            </select>
+          </label>
+          <label class="form-control w-full sm:w-60">
+            <span class="label-text text-xs">Asset / Model</span>
+            <input class="input input-bordered input-sm" type="text" [(ngModel)]="assetIdFilter" />
+          </label>
+          <label class="form-control w-full sm:w-60">
+            <span class="label-text text-xs">Agreement</span>
+            <input class="input input-bordered input-sm" type="text" [(ngModel)]="agreementIdFilter" />
+          </label>
+          <label class="form-control w-full sm:w-48">
+            <span class="label-text text-xs">Participant</span>
+            <input class="input input-bordered input-sm" type="text" [(ngModel)]="participantIdFilter" />
+          </label>
+          <label class="form-control w-full sm:w-48">
+            <span class="label-text text-xs">Model Name</span>
+            <input class="input input-bordered input-sm" type="text" [(ngModel)]="modelNameFilter" />
+          </label>
+          <label class="form-control w-full sm:w-56">
+            <span class="label-text text-xs">Correlation</span>
+            <input class="input input-bordered input-sm" type="text" [(ngModel)]="correlationIdFilter" />
+          </label>
+          <label class="form-control w-full sm:w-40">
+            <span class="label-text text-xs">Status</span>
+            <input class="input input-bordered input-sm" type="text" [(ngModel)]="statusFilter" />
+          </label>
+          <label class="form-control w-full sm:w-56">
+            <span class="label-text text-xs">Search</span>
+            <input class="input input-bordered input-sm" type="text" [(ngModel)]="searchFilter" />
+          </label>
+          <label class="form-control w-28">
+            <span class="label-text text-xs">Limit</span>
+            <input class="input input-bordered input-sm" type="number" min="1" max="5000" [(ngModel)]="limit" />
+          </label>
+          <button class="btn btn-sm btn-primary" [disabled]="loading" (click)="loadEvents()">Apply</button>
+          <button class="btn btn-sm btn-soft" [disabled]="loading" (click)="clearFilters()">Clear</button>
+        </div>
+
+        <div class="overflow-auto rounded-lg border border-base-content/10">
+          <table class="table table-zebra table-sm">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Event</th>
+                <th>Status</th>
+                <th>Model</th>
+                <th>Correlation</th>
+                <th>Primary ID</th>
+                <th>Agreement</th>
+                <th>Participant</th>
+                <th>Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (event of events; track trackEvent($index, event)) {
+                <tr>
+                  <td class="whitespace-nowrap">{{ event.occurredAt || '-' }}</td>
+                  <td>
+                    <div class="font-semibold">{{ event.eventType || '-' }}</div>
+                    <div class="text-xs opacity-70">{{ event.category || '-' }} / {{ event.sourceComponent || '-' }}</div>
+                  </td>
+                  <td>
+                    <span class="badge badge-xs" [ngClass]="eventStatusClass(event)">{{ event.status || '-' }}</span>
+                  </td>
+                  <td class="max-w-56 break-all">{{ eventModelLabel(event) }}</td>
+                  <td class="max-w-56 break-all">{{ eventCorrelationLabel(event) }}</td>
+                  <td class="max-w-64 break-all">{{ eventPrimaryId(event) }}</td>
+                  <td class="max-w-64 break-all">{{ event.agreementId || '-' }}</td>
+                  <td class="max-w-52 break-all">{{ eventParticipantLabel(event) }}</td>
+                  <td>
+                    <details class="collapse collapse-arrow min-w-64 bg-base-200/60">
+                      <summary class="collapse-title min-h-0 py-2 text-xs font-semibold">Details</summary>
+                      <pre class="collapse-content max-h-64 overflow-auto text-xs"><code>{{ eventDetailsJson(event) }}</code></pre>
+                    </details>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (events.length === 0 && !loading) {
+          <div class="alert">
+            <span>No events match the current filters.</span>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  @if (activeView === 'asset') {
+    <section class="card bg-base-300 shadow-xl">
+      <div class="card-body gap-4">
+        <div class="flex flex-wrap items-end gap-2">
+          <label class="form-control min-w-80 flex-1">
+            <span class="label-text text-xs">Asset / Model ID</span>
+            <input class="input input-bordered input-sm" type="text" [(ngModel)]="assetTimelineId" />
+          </label>
+          <button class="btn btn-sm btn-primary" [disabled]="loading || !assetTimelineId.trim()" (click)="loadAssetTimeline()">Load Timeline</button>
+        </div>
+
+        <div class="grid gap-3">
+          @for (event of assetTimelineEvents; track trackEvent($index, event)) {
+            <article class="rounded-lg border border-base-content/10 bg-base-200 p-4">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="break-all text-sm font-semibold">{{ event.eventType || '-' }}</h3>
+                    <span class="badge badge-xs" [ngClass]="eventStatusClass(event)">{{ event.status || '-' }}</span>
+                    <span class="badge badge-xs badge-ghost">{{ event.category || '-' }}</span>
+                  </div>
+                  <div class="mt-1 text-xs opacity-70">{{ event.occurredAt || '-' }} / {{ event.sourceComponent || '-' }}</div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    class="btn btn-xs btn-soft"
+                    [disabled]="!event.agreementId"
+                    (click)="openAgreementEvidence(event)"
+                  >
+                    Agreement
+                  </button>
+                  <button
+                    class="btn btn-xs btn-soft"
+                    [disabled]="eventParticipantLabel(event) === '-'"
+                    (click)="openParticipantEvents(event)"
+                  >
+                    Participant
+                  </button>
+                  <button
+                    class="btn btn-xs btn-soft"
+                    [disabled]="!event.assetId && !event.modelId"
+                    (click)="openBenchmarkHistory(event)"
+                  >
+                    Benchmarks
+                  </button>
+                </div>
+              </div>
+
+              <div class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-md bg-base-100 p-2">
+                  <div class="text-[0.65rem] uppercase opacity-60">Model</div>
+                  <div class="break-all text-sm font-medium">{{ eventModelLabel(event) }}</div>
+                </div>
+                <div class="rounded-md bg-base-100 p-2">
+                  <div class="text-[0.65rem] uppercase opacity-60">Correlation</div>
+                  <div class="break-all text-sm font-medium">{{ eventCorrelationLabel(event) }}</div>
+                </div>
+                <div class="rounded-md bg-base-100 p-2">
+                  <div class="text-[0.65rem] uppercase opacity-60">Participant</div>
+                  <div class="break-all text-sm font-medium">{{ eventParticipantLabel(event) }}</div>
+                </div>
+                <div class="rounded-md bg-base-100 p-2">
+                  <div class="text-[0.65rem] uppercase opacity-60">Agreement</div>
+                  <div class="break-all text-sm font-medium">{{ event.agreementId || '-' }}</div>
+                </div>
+                <div class="rounded-md bg-base-100 p-2">
+                  <div class="text-[0.65rem] uppercase opacity-60">Process</div>
+                  <div class="break-all text-sm font-medium">{{ eventProcessLabel(event) }}</div>
+                </div>
+                <div class="rounded-md bg-base-100 p-2">
+                  <div class="text-[0.65rem] uppercase opacity-60">HTTP</div>
+                  <div class="break-all text-sm font-medium">{{ eventHttpStatusLabel(event) }}</div>
+                </div>
+                <div class="rounded-md bg-base-100 p-2">
+                  <div class="text-[0.65rem] uppercase opacity-60">Latency</div>
+                  <div class="break-all text-sm font-medium">{{ eventLatencyLabel(event) }}</div>
+                </div>
+                <div class="rounded-md bg-base-100 p-2">
+                  <div class="text-[0.65rem] uppercase opacity-60">Task</div>
+                  <div class="break-all text-sm font-medium">{{ eventTaskTypeLabel(event) }}</div>
+                </div>
+              </div>
+
+              <details class="collapse collapse-arrow mt-3 bg-base-100/70">
+                <summary class="collapse-title min-h-0 py-2 text-xs font-semibold">Details</summary>
+                <pre class="collapse-content max-h-72 overflow-auto text-xs"><code>{{ eventDetailsJson(event) }}</code></pre>
+              </details>
+            </article>
+          }
+        </div>
+
+        @if (assetTimelineEvents.length === 0 && !loading) {
+          <div class="alert">
+            <span>No asset timeline loaded.</span>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  @if (activeView === 'agreement') {
+    <section class="card bg-base-300 shadow-xl">
+      <div class="card-body gap-4">
+        <div class="flex flex-wrap items-end gap-2">
+          <label class="form-control min-w-80 flex-1">
+            <span class="label-text text-xs">Agreement ID</span>
+            <input class="input input-bordered input-sm" type="text" [(ngModel)]="agreementEvidenceId" />
+          </label>
+          <button class="btn btn-sm btn-primary" [disabled]="loading || !agreementEvidenceId.trim()" (click)="loadAgreementEvidence()">Load Evidence</button>
+        </div>
+
+        <div class="overflow-auto rounded-lg border border-base-content/10">
+          <table class="table table-zebra table-sm">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Event</th>
+                <th>Model</th>
+                <th>Correlation</th>
+                <th>Transfer</th>
+                <th>Session</th>
+                <th>Metrics</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (event of agreementEvidenceEvents; track trackEvent($index, event)) {
+                <tr>
+                  <td class="whitespace-nowrap">{{ event.occurredAt || '-' }}</td>
+                  <td>{{ event.eventType || '-' }}</td>
+                  <td class="max-w-64 break-all">{{ eventModelLabel(event) }}</td>
+                  <td class="max-w-56 break-all">{{ eventCorrelationLabel(event) }}</td>
+                  <td class="max-w-64 break-all">{{ event.transferProcessId || '-' }}</td>
+                  <td class="max-w-64 break-all">{{ event.usageSessionId || '-' }}</td>
+                  <td>status {{ metricValue(event, 'httpStatus') }} / {{ metricValue(event, 'durationMs') }} ms</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (agreementEvidenceEvents.length === 0 && !loading) {
+          <div class="alert">
+            <span>No agreement evidence loaded.</span>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  @if (activeView === 'benchmarks') {
+    <section class="card bg-base-300 shadow-xl">
+      <div class="card-body gap-4">
+        <div class="flex flex-wrap items-end gap-2">
+          <label class="form-control min-w-80 flex-1">
+            <span class="label-text text-xs">Asset / Model ID</span>
+            <input class="input input-bordered input-sm" type="text" [(ngModel)]="benchmarkAssetId" />
+          </label>
+          <button class="btn btn-sm btn-primary" [disabled]="loading" (click)="loadBenchmarks()">Load Benchmarks</button>
+        </div>
+
+        <div class="overflow-auto rounded-lg border border-base-content/10">
+          <table class="table table-zebra table-sm">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Run</th>
+                <th>Best Model</th>
+                <th>Correlation</th>
+                <th>Models</th>
+                <th>Samples</th>
+                <th>Score</th>
+                <th>Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (event of benchmarkEvents; track trackEvent($index, event)) {
+                <tr>
+                  <td class="whitespace-nowrap">{{ event.occurredAt || '-' }}</td>
+                  <td class="max-w-56 break-all">{{ event.benchmarkRunId || event.eventId || '-' }}</td>
+                  <td class="max-w-64 break-all">{{ eventModelLabel(event) }}</td>
+                  <td class="max-w-56 break-all">{{ eventCorrelationLabel(event) }}</td>
+                  <td>{{ metricValue(event, 'modelCount') }}</td>
+                  <td>{{ metricValue(event, 'sampleCount') }}</td>
+                  <td>{{ metricValue(event, 'bestScore') }}</td>
+                  <td>
+                    <details class="collapse collapse-arrow min-w-64 bg-base-200/60">
+                      <summary class="collapse-title min-h-0 py-2 text-xs font-semibold">Details</summary>
+                      <pre class="collapse-content max-h-64 overflow-auto text-xs"><code>{{ eventDetailsJson(event) }}</code></pre>
+                    </details>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (benchmarkEvents.length === 0 && !loading) {
+          <div class="alert">
+            <span>No benchmark history found.</span>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  @if (activeView === 'participants') {
+    <section class="card bg-base-300 shadow-xl">
+      <div class="card-body gap-4">
+        <div class="overflow-auto rounded-lg border border-base-content/10">
+          <table class="table table-zebra table-sm">
+            <thead>
+              <tr>
+                <th>Participant</th>
+                <th>Events</th>
+                <th>Assets</th>
+                <th>Agreements</th>
+                <th>First Seen</th>
+                <th>Last Seen</th>
+                <th>Event Mix</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (participant of participants; track participant.participantId) {
+                <tr>
+                  <td class="font-semibold">{{ participant.participantId }}</td>
+                  <td>{{ participant.eventCount }}</td>
+                  <td>{{ participant.assetCount }}</td>
+                  <td>{{ participant.agreementCount }}</td>
+                  <td class="whitespace-nowrap">{{ participant.firstSeen || '-' }}</td>
+                  <td class="whitespace-nowrap">{{ participant.lastSeen || '-' }}</td>
+                  <td>
+                    <div class="flex flex-wrap gap-1">
+                      @for (entry of participant.eventTypes | keyvalue; track entry.key) {
+                        <span class="badge badge-xs badge-ghost">{{ entry.key }}: {{ entry.value }}</span>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (participants.length === 0 && !loading) {
+          <div class="alert">
+            <span>No participant summaries found.</span>
+          </div>
+        }
+      </div>
+    </section>
+  }
+</div>
