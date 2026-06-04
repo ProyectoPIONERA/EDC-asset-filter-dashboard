@@ -46,6 +46,10 @@ export class DashboardModelExecutionService {
           headers: request.headers || { 'Content-Type': 'application/json' },
           payload: request.payload,
         };
+        this.addOptional(body, 'modelName', request.modelName);
+        this.addOptional(body, 'usageSessionId', request.usageSessionId);
+        this.addOptional(body, 'correlationId', request.correlationId);
+        this.addOptional(body, 'benchmarkRunId', request.benchmarkRunId);
 
         return this.http.post<unknown>(inferApiUrl, body, { headers }).pipe(
           map(response => ({
@@ -57,6 +61,15 @@ export class DashboardModelExecutionService {
         );
       }),
     );
+  }
+
+  private addOptional(target: Record<string, unknown>, key: string, value: unknown): void {
+    if (typeof value === 'string' && value.trim().length === 0) {
+      return;
+    }
+    if (value !== undefined && value !== null) {
+      target[key] = value;
+    }
   }
 
   private isTechnicallyExecutable(asset: MlGuiAsset): boolean {

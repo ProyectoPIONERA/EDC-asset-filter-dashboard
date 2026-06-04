@@ -14,6 +14,7 @@ import { Subject, filter, firstValueFrom, map, takeUntil, timeout } from 'rxjs';
 import { ExecutableAsset, InputFeatureSpec, MlGuiAsset } from '../../models/ml-gui-asset';
 import { DashboardMlBrowserService } from '../../services/dashboard-ml-browser.service';
 import { DashboardModelExecutionService } from '../../services/dashboard-model-execution.service';
+import { DashboardModelObserverService } from '../../services/dashboard-model-observer.service';
 
 interface BenchmarkResultRow {
   rank: number;
@@ -62,6 +63,11 @@ interface ProbeResult {
   errorMessage?: string;
 }
 
+interface ObserverRunContext {
+  benchmarkRunId?: string;
+  correlationId?: string;
+}
+
 interface AgreementPair {
   agreement: ContractAgreement;
   negotiation: ContractNegotiation;
@@ -76,6 +82,7 @@ interface AgreementPair {
 export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
   private readonly executionService = inject(DashboardModelExecutionService);
   private readonly browserService = inject(DashboardMlBrowserService);
+  private readonly observerService = inject(DashboardModelObserverService);
   private readonly transferService = inject(ContractAndTransferService);
   private readonly modalAndAlertService = inject(ModalAndAlertService);
   private readonly destroy$ = new Subject<void>();
@@ -583,11 +590,13 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     this.statusMessage = `Benchmark running (${this.benchmarkParallelism} parallel requests/model)...`;
 
     const accumulators: BenchmarkAccumulator[] = [];
+    const benchmarkRunId = this.createRunId();
+    const correlationId = this.createRunId();
 
     try {
       for (const asset of selectedAssets) {
         this.statusMessage = `Benchmarking ${asset.name}...`;
-        const accumulator = await this.runBenchmarkForAsset(asset);
+        const accumulator = await this.runBenchmarkForAsset(asset, { benchmarkRunId, correlationId });
         accumulators.push(accumulator);
       }
 
@@ -596,22 +605,33 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
       this.statusMessage = best
         ? `Benchmark completed. Best model: ${best.modelName} (score ${best.score.toFixed(2)}).`
         : 'Benchmark completed.';
+      this.recordBenchmarkObserverEvent('BENCHMARK_COMPLETED', benchmarkRunId, correlationId, selectedAssets);
       this.modalAndAlertService.showAlert('Benchmark completed successfully.', 'Benchmark', 'success', 4);
     } catch (error) {
       this.errorMessage = this.toErrorMessage(error, 'Benchmark failed unexpectedly.');
       this.statusMessage = 'Benchmark failed.';
+      this.recordBenchmarkObserverEvent(
+        'BENCHMARK_FAILED',
+        benchmarkRunId,
+        correlationId,
+        selectedAssets,
+        this.errorMessage,
+      );
     } finally {
       this.runningBenchmark = false;
     }
   }
 
-  private async runBenchmarkForAsset(asset: ExecutableAsset): Promise<BenchmarkAccumulator> {
+  private async runBenchmarkForAsset(
+    asset: ExecutableAsset,
+    observerContext: ObserverRunContext,
+  ): Promise<BenchmarkAccumulator> {
     const modelStart = performance.now();
     const outcomes = await this.mapWithConcurrency(
       this.datasetRows,
       Math.max(1, this.benchmarkParallelism),
       async row => {
-        const result = await this.executeProbe(asset, row);
+        const result = await this.executeProbe(asset, row, observerContext);
         this.completedRequests += 1;
         if (this.completedRequests % 25 === 0) {
           await new Promise<void>(resolve => setTimeout(resolve, 0));
@@ -646,6 +666,135 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
       throughputRps: successCount / (elapsedMs / 1000),
       accuracyPercent,
     };
+  }
+
+  private recordBenchmarkObserverEvent(
+    eventType: 'BENCHMARK_COMPLETED' | 'BENCHMARK_FAILED',
+    benchmarkRunId: string,
+    correlationId: string,
+    selectedAssets: ExecutableAsset[],
+    errorMessage = '',
+  ): void {
+    const best = this.results[0] || null;
+    const primaryAsset = best
+      ? selectedAssets.find(asset => asset.id === best.assetId) || selectedAssets[0] || null
+      : selectedAssets[0] || null;
+
+    this.observerService
+      .recordEvent({
+        eventType,
+        category: 'benchmark',
+        sourceComponent: 'data-dashboard:model-benchmarking',
+        benchmarkRunId,
+        correlationId,
+        assetId: best?.assetId || primaryAsset?.id || '',
+        modelId: best?.assetId || primaryAsset?.id || '',
+        modelName: best?.modelName || primaryAsset?.name || '',
+        taskType: this.primaryTaskType(primaryAsset),
+        datasetFingerprint: this.datasetFingerprint(),
+        datasetRowCount: this.datasetRows.length,
+        selectedMetrics: this.selectedBenchmarkMetrics(),
+        benchmarkSummary: this.benchmarkSummary(best, selectedAssets, errorMessage),
+        latencyMs: best?.averageLatencyMs ?? undefined,
+        status: eventType === 'BENCHMARK_COMPLETED' ? 'COMPLETED' : 'FAILED',
+        details: {
+          correlationId,
+          datasetFileName: this.datasetFileName,
+          selectedDatasetAssetId: this.selectedDataspaceDatasetId,
+          selectedModels: selectedAssets.map(asset => ({
+            assetId: asset.id,
+            name: asset.name,
+            tasks: asset.tasks,
+            tags: asset.tags,
+          })),
+          mapping: {
+            inputPath: this.inputPath,
+            expectedPath: this.expectedPath,
+            predictionPath: this.predictionPath,
+          },
+          results: this.results,
+          errors: this.benchmarkErrors,
+          error: errorMessage,
+        },
+        metrics: {
+          modelCount: selectedAssets.length,
+          sampleCount: this.datasetRows.length,
+          bestScore: best?.score ?? null,
+          bestSuccessRate: best?.successRate ?? null,
+          bestAverageLatencyMs: best?.averageLatencyMs ?? null,
+          bestP95LatencyMs: best?.p95LatencyMs ?? null,
+          bestAccuracyPercent: best?.accuracyPercent ?? null,
+          timeoutMs: this.requestTimeoutMs,
+          benchmarkParallelism: this.benchmarkParallelism,
+        },
+      })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: error => {
+          this.recordBenchmarkError('Model Observer', this.toErrorMessage(error, 'Failed to record benchmark event.'));
+        },
+      });
+  }
+
+  private primaryTaskType(asset: ExecutableAsset | null): string {
+    const task = (asset?.tasks || []).find(value => value.trim().length > 0);
+    if (task) {
+      return task;
+    }
+    return this.activeTaskFilter === 'all' ? '' : this.activeTaskFilter;
+  }
+
+  private selectedBenchmarkMetrics(): string[] {
+    const metrics = ['successRate', 'averageLatencyMs', 'p95LatencyMs', 'throughputRps'];
+    if (this.expectedPath.trim().length > 0 && this.predictionPath.trim().length > 0) {
+      metrics.push('accuracyPercent');
+    }
+    return metrics;
+  }
+
+  private benchmarkSummary(
+    best: BenchmarkResultRow | null,
+    selectedAssets: ExecutableAsset[],
+    errorMessage: string,
+  ): Record<string, unknown> {
+    return {
+      bestAssetId: best?.assetId || '',
+      bestModelName: best?.modelName || '',
+      modelCount: selectedAssets.length,
+      sampleCount: this.datasetRows.length,
+      bestScore: best?.score ?? null,
+      bestSuccessRate: best?.successRate ?? null,
+      bestAverageLatencyMs: best?.averageLatencyMs ?? null,
+      bestP95LatencyMs: best?.p95LatencyMs ?? null,
+      bestAccuracyPercent: best?.accuracyPercent ?? null,
+      error: errorMessage,
+    };
+  }
+
+  private datasetFingerprint(): string {
+    const raw = JSON.stringify({
+      datasetFileName: this.datasetFileName,
+      selectedDatasetAssetId: this.selectedDataspaceDatasetId,
+      rowCount: this.datasetRows.length,
+      rows: this.datasetRows,
+    });
+    return `fnv1a32:${this.hashText(raw)}`;
+  }
+
+  private hashText(value: string): string {
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, '0');
+  }
+
+  private createRunId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `benchmark-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
   exportResultsCsv(): void {
@@ -1254,7 +1403,11 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     return current;
   }
 
-  private async executeProbe(asset: ExecutableAsset, row: Record<string, unknown>): Promise<ProbeResult> {
+  private async executeProbe(
+    asset: ExecutableAsset,
+    row: Record<string, unknown>,
+    observerContext: ObserverRunContext = {},
+  ): Promise<ProbeResult> {
     const payload = this.resolveInputPayload(row);
     const startedAt = performance.now();
 
@@ -1263,8 +1416,12 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
         this.executionService
           .executeModel({
             assetId: asset.id,
+            modelName: asset.name,
             payload,
             path: asset.executionPath,
+            benchmarkRunId: observerContext.benchmarkRunId,
+            correlationId: observerContext.correlationId,
+            usageSessionId: observerContext.correlationId,
           })
           .pipe(timeout(this.requestTimeoutMs)),
       );

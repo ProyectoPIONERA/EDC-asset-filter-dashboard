@@ -27,6 +27,12 @@
       "viewDescription": "Compare multiple executable models on the same dataset with client-side latency, success, throughput, and optional accuracy metrics."
     },
     {
+      "text": "Model Observer",
+      "materialSymbol": "fact_check",
+      "routerPath": "model-observer",
+      "viewDescription": "Query model lifecycle evidence by event, asset, agreement, benchmark run, and participant."
+    },
+    {
       "text": "Catalog",
       "materialSymbol": "book_ribbon",
       "routerPath": "catalog",

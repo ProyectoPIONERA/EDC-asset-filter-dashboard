@@ -70,6 +70,10 @@ export interface ModelExecutionRequest {
   path?: string;
   method?: string;
   headers?: Record<string, string>;
+  modelName?: string;
+  usageSessionId?: string;
+  correlationId?: string;
+  benchmarkRunId?: string;
 }
 
 export interface ModelExecutionResult {

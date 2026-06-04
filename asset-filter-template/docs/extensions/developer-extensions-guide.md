@@ -5,12 +5,14 @@ This guide explains how to integrate and operate the custom extensions from a so
 Scope:
 - `AssetFilterExtension` (`/api/filter/catalog`)
 - `InferenceExtension` (`/api/infer`)
+- `ModelObserverExtension` (`/api/model-observer`)
 
 Related source files:
 - `connector/src/main/java/com/pionera/assetfilter/filter/AssetFilterExtension.java`
 - `connector/src/main/java/com/pionera/assetfilter/filter/AssetFilterController.java`
 - `connector/src/main/java/com/pionera/assetfilter/infer/InferenceExtension.java`
 - `connector/src/main/java/com/pionera/assetfilter/infer/InferenceController.java`
+- `connector/src/main/java/com/pionera/assetfilter/modelobserver/`
 
 ## 1) Runtime and Activation Model
 
@@ -26,6 +28,7 @@ At runtime boot:
 Effective endpoints in this project:
 - `POST http://localhost:29191/api/filter/catalog`
 - `POST http://localhost:29191/api/infer`
+- `GET  http://localhost:29191/api/model-observer/events`
 
 ## 2) Configuration Keys
 
@@ -275,4 +278,3 @@ Current implementation is correct for development/integration, but production us
 - OAuth/OIDC-managed APIs (not mock IAM)
 - external vault and key rotation
 - persistent distributed stores for stateful components
-

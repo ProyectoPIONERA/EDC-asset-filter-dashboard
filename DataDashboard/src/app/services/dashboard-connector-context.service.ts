@@ -27,6 +27,10 @@ export class DashboardConnectorContextService {
     map(config => this.buildDefaultApiUrl(config.defaultUrl, '/infer')),
   );
 
+  readonly modelObserverApiUrl$: Observable<string> = this.activeConfig$.pipe(
+    map(config => this.buildDefaultApiUrl(config.defaultUrl, '/model-observer')),
+  );
+
   readonly managementUrl$: Observable<string> = this.activeConfig$.pipe(
     map(config => this.trimTrailingSlash(config.managementUrl)),
   );

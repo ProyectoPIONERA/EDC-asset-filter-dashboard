@@ -16,6 +16,7 @@ package com.pionera.assetfilter.infer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pionera.assetfilter.modelobserver.ModelObserverRegistry;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -31,9 +32,13 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 
 import static jakarta.ws.rs.core.HttpHeaders.ACCEPT;
 import static jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION;
@@ -74,8 +79,13 @@ public class InferenceController {
 
     @POST
     public Response infer(String requestBody) {
+        JsonNode requestNode = null;
+        EdrInfo edrInfo = null;
+        var usageSessionId = UUID.randomUUID().toString();
+        var startedAt = Instant.now();
+        var startedNanos = System.nanoTime();
         try {
-            var requestNode = mapper.readTree(requestBody);
+            requestNode = mapper.readTree(requestBody);
             if (requestNode == null || requestNode.isNull()) {
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity("{\"error\":\"Missing request body\"}")
@@ -87,21 +97,28 @@ public class InferenceController {
             var payload = firstNode(requestNode, "payload", "body", "input");
             var headersNode = firstNode(requestNode, "headers");
 
-            var edrInfo = resolveEdr(requestNode);
+            edrInfo = resolveEdr(requestNode);
             if (edrInfo == null) {
                 var assetId = textValue(requestNode, "assetId", "id");
                 var contractId = textValue(requestNode, "contractId", "contractAgreementId", "agreementId");
                 var transferId = textValue(requestNode, "transferProcessId", "transferId");
                 if (assetId != null && !assetId.isBlank() && contractId == null && transferId == null) {
+                    recordExecutionEvent(requestNode, null, usageSessionId, startedAt, startedNanos,
+                            400, MediaType.APPLICATION_JSON, "No contract agreement found for assetId");
                     return Response.status(Response.Status.BAD_REQUEST)
                             .entity("{\"error\":\"No contract agreement found for assetId\"}")
                             .build();
                 }
+                recordExecutionEvent(requestNode, null, usageSessionId, startedAt, startedNanos,
+                        400, MediaType.APPLICATION_JSON,
+                        "Missing assetId/transferProcessId/contractId or endpoint/authorization");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity("{\"error\":\"Missing assetId/transferProcessId/contractId or endpoint/authorization\"}")
                         .build();
             }
             if (edrInfo.endpoint == null || edrInfo.endpoint.isBlank()) {
+                recordExecutionEvent(requestNode, edrInfo, usageSessionId, startedAt, startedNanos,
+                        400, MediaType.APPLICATION_JSON, "EDR is missing endpoint");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity("{\"error\":\"EDR is missing endpoint (asset is not an HTTP endpoint)\"}")
                         .build();
@@ -130,32 +147,113 @@ public class InferenceController {
             var response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
             var contentType = response.headers().firstValue(CONTENT_TYPE).orElse(MediaType.APPLICATION_JSON);
+            recordExecutionEvent(requestNode, edrInfo, usageSessionId, startedAt, startedNanos,
+                    response.statusCode(), contentType, null);
             return Response.status(response.statusCode())
                     .header(CONTENT_TYPE, contentType)
                     .entity(response.body())
                     .build();
         } catch (Exception e) {
             monitor.warning("Inference failed: " + e.getMessage());
+            recordExecutionEvent(requestNode, edrInfo, usageSessionId, startedAt, startedNanos,
+                    500, MediaType.APPLICATION_JSON, e.getMessage());
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("{\"error\":\"Inference failed\"}")
                     .build();
         }
     }
 
+    private void recordExecutionEvent(JsonNode requestNode,
+                                      EdrInfo edrInfo,
+                                      String usageSessionId,
+                                      Instant startedAt,
+                                      long startedNanos,
+                                      int httpStatus,
+                                      String contentType,
+                                      String errorMessage) {
+        if (!ModelObserverRegistry.isReady()) {
+            return;
+        }
+
+        var durationMs = Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
+        var assetId = firstNonBlank(edrInfo == null ? null : edrInfo.assetId(),
+                textValue(requestNode, "assetId", "id"), null);
+        var agreementId = firstNonBlank(edrInfo == null ? null : edrInfo.agreementId(),
+                textValue(requestNode, "contractId", "contractAgreementId", "agreementId"), null);
+        var transferProcessId = firstNonBlank(edrInfo == null ? null : edrInfo.transferProcessId(),
+                textValue(requestNode, "transferProcessId", "transferId"), null);
+        var resolvedUsageSessionId = firstNonBlank(textValue(requestNode, "usageSessionId", "sessionId"),
+                usageSessionId);
+        var correlationId = firstNonBlank(textValue(requestNode, "correlationId", "requestId"),
+                resolvedUsageSessionId);
+        var benchmarkRunId = firstNonBlank(textValue(requestNode, "benchmarkRunId", "runId"), null);
+        var modelName = firstNonBlank(textValue(requestNode, "modelName", "name"), null);
+        var localExecution = edrInfo != null && edrInfo.localAsset();
+
+        var success = errorMessage == null && httpStatus < 400;
+        var event = new LinkedHashMap<String, Object>();
+        event.put("eventType", success ? "MODEL_EXECUTION_COMPLETED" : "MODEL_EXECUTION_FAILED");
+        event.put("category", "execution");
+        event.put("occurredAt", startedAt.toString());
+        event.put("correlationId", correlationId);
+        event.put("usageSessionId", resolvedUsageSessionId);
+        event.put("benchmarkRunId", benchmarkRunId);
+        event.put("assetId", assetId);
+        event.put("modelId", assetId);
+        event.put("modelName", modelName);
+        event.put("agreementId", agreementId);
+        event.put("transferProcessId", transferProcessId);
+        event.put("status", success ? "COMPLETED" : "FAILED");
+        event.put("httpStatus", httpStatus);
+        event.put("latencyMs", durationMs);
+        event.put("executionMode", localExecution ? "local" : "federated");
+        event.put("endpointKind", localExecution ? "local-http" : "edr-http");
+        event.put("details", compactMap(
+                "method", firstNonBlank(textValue(requestNode, "method"), "POST").toUpperCase(Locale.ROOT),
+                "path", firstNonBlank(textValue(requestNode, "path"), ""),
+                "contentType", contentType,
+                "localExecution", localExecution,
+                "correlationId", correlationId,
+                "benchmarkRunId", benchmarkRunId,
+                "modelName", modelName,
+                "error", errorMessage
+        ));
+        event.put("metrics", compactMap(
+                "httpStatus", httpStatus,
+                "durationMs", durationMs
+        ));
+        ModelObserverRegistry.record(event);
+    }
+
+    private Map<String, Object> compactMap(Object... keyValues) {
+        var map = new LinkedHashMap<String, Object>();
+        for (int index = 0; index + 1 < keyValues.length; index += 2) {
+            var value = keyValues[index + 1];
+            if (value != null) {
+                map.put(String.valueOf(keyValues[index]), value);
+            }
+        }
+        return map;
+    }
+
     private EdrInfo resolveEdr(JsonNode requestNode) throws Exception {
+        var requestAssetId = firstNonBlank(textValue(requestNode, "assetId", "id"), null);
+        var requestContractId = firstNonBlank(
+                textValue(requestNode, "contractId", "contractAgreementId", "agreementId"), null);
+        var requestTransferProcessId = firstNonBlank(textValue(requestNode, "transferProcessId", "transferId"), null);
         var endpoint = firstNonBlank(textValue(requestNode, "endpoint", "edrEndpoint"), null);
         var authorization = firstNonBlank(textValue(requestNode, "authorization", "edrToken", "authCode"), null);
         var authHeader = firstNonBlank(textValue(requestNode, "authHeader", "authKey"), AUTHORIZATION);
         if (endpoint != null && authorization != null) {
-            return new EdrInfo(endpoint, authorization, authHeader);
+            return new EdrInfo(endpoint, authorization, authHeader, requestAssetId, requestContractId,
+                    requestTransferProcessId, false);
         }
 
-        var transferProcessId = textValue(requestNode, "transferProcessId", "transferId");
+        var transferProcessId = requestTransferProcessId;
         if (transferProcessId == null || transferProcessId.isBlank()) {
-            var contractId = firstNonBlank(
-                    textValue(requestNode, "contractId", "contractAgreementId", "agreementId"), null);
+            var contractId = requestContractId;
             if (contractId == null || contractId.isBlank()) {
-                var assetId = firstNonBlank(textValue(requestNode, "assetId", "id"), null);
+                var assetId = requestAssetId;
                 if (assetId == null || assetId.isBlank()) {
                     return null;
                 }
@@ -164,7 +262,7 @@ public class InferenceController {
                 // if asset is local and has a direct HttpData baseUrl, execute directly and skip contract+transfer.
                 var localAssetEndpoint = resolveLocalAssetEndpoint(assetId);
                 if (localAssetEndpoint != null) {
-                    return new EdrInfo(localAssetEndpoint, null, null);
+                    return new EdrInfo(localAssetEndpoint, null, null, assetId, null, null, true);
                 }
 
                 var agreementId = findAgreementIdForAsset(assetId);
@@ -176,16 +274,18 @@ public class InferenceController {
                         textValue(requestNode, "connectorId", "providerId"),
                         textValue(requestNode, "counterPartyAddress", "protocolAddress"),
                         textValue(requestNode, "protocol"),
-                        textValue(requestNode, "transferType"));
+                        textValue(requestNode, "transferType"),
+                        assetId);
             }
             return startTransferAndResolve(contractId,
                     textValue(requestNode, "connectorId", "providerId"),
                     textValue(requestNode, "counterPartyAddress", "protocolAddress"),
                     textValue(requestNode, "protocol"),
-                    textValue(requestNode, "transferType"));
+                    textValue(requestNode, "transferType"),
+                    requestAssetId);
         }
 
-        return waitForEdr(transferProcessId);
+        return waitForEdr(transferProcessId, requestAssetId, requestContractId);
     }
 
     private String resolveLocalAssetEndpoint(String assetId) throws Exception {
@@ -238,7 +338,8 @@ public class InferenceController {
                                             String connectorId,
                                             String counterPartyAddress,
                                             String protocol,
-                                            String transferType) throws Exception {
+                                            String transferType,
+                                            String assetId) throws Exception {
         var transferParams = resolveTransferParams(contractId, connectorId, counterPartyAddress, protocol, transferType);
         var resolvedConnectorId = transferParams.connectorId();
         var resolvedCounterPartyAddress = transferParams.counterPartyAddress();
@@ -259,7 +360,7 @@ public class InferenceController {
             return null;
         }
 
-        return waitForEdr(createdTransferId);
+        return waitForEdr(createdTransferId, assetId, contractId);
     }
 
     private TransferParams resolveTransferParams(String contractId,
@@ -315,7 +416,7 @@ public class InferenceController {
         return new TransferParams(resolvedConnectorId, resolvedCounterPartyAddress, resolvedProtocol, resolvedTransferType);
     }
 
-    private EdrInfo waitForEdr(String transferProcessId) throws Exception {
+    private EdrInfo waitForEdr(String transferProcessId, String assetId, String agreementId) throws Exception {
         var edrUrl = managementBaseUrl + "/v3/edrs/" + transferProcessId + "/dataaddress";
         int attempts = 10;
         long delayMs = 500;
@@ -338,7 +439,8 @@ public class InferenceController {
                         textValue(edrNode, "authHeader", "authKey", "edc:authKey"), AUTHORIZATION);
 
                 if (resolvedEndpoint != null && resolvedAuth != null) {
-                    return new EdrInfo(resolvedEndpoint, resolvedAuth, resolvedAuthHeader);
+                    return new EdrInfo(resolvedEndpoint, resolvedAuth, resolvedAuthHeader,
+                            assetId, agreementId, transferProcessId, false);
                 }
             } else {
                 monitor.debug("EDR not ready yet: " + response.body());
@@ -681,7 +783,13 @@ public class InferenceController {
         return firstNonBlank(providerId, consumerId, null);
     }
 
-    private record EdrInfo(String endpoint, String authorization, String authHeader) {
+    private record EdrInfo(String endpoint,
+                           String authorization,
+                           String authHeader,
+                           String assetId,
+                           String agreementId,
+                           String transferProcessId,
+                           boolean localAsset) {
     }
 
     private record TransferParams(String connectorId, String counterPartyAddress, String protocol,
