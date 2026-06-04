@@ -1,4 +1,4 @@
-# AIModelHub
+# EDC-asset-filter-dashboard
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://adoptium.net/)
@@ -9,12 +9,12 @@
 
 **Dataspace-native discovery, execution, and benchmarking for AI models and datasets.**
 
-AIModelHub is a research-oriented platform developed within the PIONERA project for publishing, discovering, negotiating, executing, and benchmarking AI assets across Eclipse EDC-based dataspace connectors.
+EDC-asset-filter-dashboard is a research-oriented platform developed within the PIONERA project for publishing, discovering, negotiating, executing, and benchmarking AI assets across Eclipse EDC-based dataspace connectors.
 
 The repository combines an Angular dashboard with EDC runtime extensions so teams can explore AI assets end to end: from catalog filtering and contract negotiation to model inference and side-by-side benchmark runs.
 
 > [!IMPORTANT]
-> AIModelHub is a research and integration prototype. The platform is functional for local development, experimentation, and validation workflows, but the current runtime is **not production-ready** yet.
+> EDC-asset-filter-dashboard is a research and integration prototype. The platform is functional for local development, experimentation, and validation workflows, but the current runtime is **not production-ready** yet.
 
 ## Overview
 
@@ -50,8 +50,8 @@ The repository combines an Angular dashboard with EDC runtime extensions so team
 ### Clone the repository
 
 ```bash
-git clone https://github.com/ProyectoPIONERA/AIModelHub.git
-cd AIModelHub
+git clone https://github.com/ProyectoPIONERA/EDC-asset-filter-dashboard.git
+cd EDC-asset-filter-dashboard
 ```
 
 ### Install dashboard dependencies
