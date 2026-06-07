@@ -38,19 +38,25 @@ export class PaginationComponent<T> implements OnInit, OnChanges {
   }
 
   calcPages() {
-    if (this.items && this.pageItemCount > 0) {
-      this.totalPages = Math.max(0, Math.ceil(this.items.length / this.pageItemCount) - 1);
+    const items = this.items ?? [];
+    if (this.pageItemCount > 0) {
+      this.totalPages = Math.max(0, Math.ceil(items.length / this.pageItemCount) - 1);
       if (this.currentPage > this.totalPages) {
         this.currentPage = this.totalPages;
       }
       this.emitCurrentPageItems();
+    } else {
+      this.totalPages = 0;
+      this.currentPage = 0;
+      this.pageItems.emit([]);
     }
   }
 
   emitCurrentPageItems() {
+    const items = this.items ?? [];
     const start = this.currentPage * this.pageItemCount;
     const end = start + this.pageItemCount;
-    this.pageItems.emit(this.items!.slice(start, end));
+    this.pageItems.emit(items.slice(start, end));
   }
 
   forward() {

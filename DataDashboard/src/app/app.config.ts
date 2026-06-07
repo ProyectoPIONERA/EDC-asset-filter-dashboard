@@ -32,20 +32,36 @@ import { APP_BASE_HREF } from '@angular/common';
 class BaseHrefService {
   private readonly http = inject(HttpClient);
 
-  private baseHref = '/';
+  private baseHref = this.baseHrefFromCurrentLocation();
 
   async load() {
     try {
-      this.baseHref = (
+      const configuredBaseHref = (
         await firstValueFrom(this.http.get('config/APP_BASE_HREF.txt', { responseType: 'text' }))
-      ).replace(/\n/g, '');
+      ).replace(/\n/g, '').trim();
+      if (configuredBaseHref) {
+        this.baseHref = configuredBaseHref;
+      }
     } catch {
-      console.debug('No base href config found. Default is "/"');
+      console.debug(`No base href config found. Default is "${this.baseHref}"`);
     }
   }
 
   get(): string {
     return this.baseHref;
+  }
+
+  private baseHrefFromCurrentLocation(): string {
+    const pathname = globalThis.location?.pathname ?? '/';
+    const marker = '/edc-dashboard/';
+    const markerIndex = pathname.indexOf(marker);
+    if (markerIndex >= 0) {
+      return pathname.slice(0, markerIndex + marker.length);
+    }
+    if (pathname.endsWith('/edc-dashboard')) {
+      return `${pathname}/`;
+    }
+    return '/';
   }
 }
 

@@ -14,7 +14,7 @@
 
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { TransferProcess } from '@think-it-labs/edc-connector-client';
-import { from, map, Observable, of, Subject, takeUntil } from 'rxjs';
+import { BehaviorSubject, from, map, Observable, of, shareReplay, Subject, takeUntil, tap } from 'rxjs';
 import { TransferHistoryTableComponent } from '../transfer-history-table/transfer-history-table.component';
 import { AsyncPipe } from '@angular/common';
 import {
@@ -57,7 +57,8 @@ export class TransferHistoryViewComponent implements OnInit, OnDestroy {
 
   transferProcesses$: Observable<TransferProcess[]> = of([]);
   filteredTransferProcesses$: Observable<TransferProcess[]> = of([]);
-  pageTransferProcesses$: Observable<TransferProcess[]> = of([]);
+  private readonly pageTransferProcessesSubject = new BehaviorSubject<TransferProcess[]>([]);
+  pageTransferProcesses$: Observable<TransferProcess[]> = this.pageTransferProcessesSubject.asObservable();
 
   pageItemCount = 20;
   initialized = false;
@@ -69,7 +70,7 @@ export class TransferHistoryViewComponent implements OnInit, OnDestroy {
   }
 
   private async fetchHistory() {
-    this.transferProcesses$ = this.filteredTransferProcesses$ = from(
+    const transferProcesses$ = from(
       this.transferProcessService.getAllTransferProcesses({
         sortField: 'stateTimestamp',
         sortOrder: 'DESC',
@@ -81,11 +82,15 @@ export class TransferHistoryViewComponent implements OnInit, OnDestroy {
           },
         ],
       }),
+    ).pipe(
+      tap(transferProcesses => this.setCurrentPageTransferProcesses(transferProcesses)),
+      shareReplay({ bufferSize: 1, refCount: true }),
     );
+    this.transferProcesses$ = this.filteredTransferProcesses$ = transferProcesses$;
   }
 
   paginationEvent(pageItems: TransferProcess[]) {
-    this.pageTransferProcesses$ = of(pageItems);
+    this.pageTransferProcessesSubject.next(pageItems ?? []);
   }
 
   filter(searchText: string) {
@@ -102,6 +107,8 @@ export class TransferHistoryViewComponent implements OnInit, OnDestroy {
               transferProcess.id.toLowerCase().includes(lower),
           ),
         ),
+        tap(transferProcesses => this.setCurrentPageTransferProcesses(transferProcesses)),
+        shareReplay({ bufferSize: 1, refCount: true }),
       );
     } else {
       this.filteredTransferProcesses$ = this.transferProcesses$;
@@ -131,5 +138,10 @@ export class TransferHistoryViewComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+    this.pageTransferProcessesSubject.complete();
+  }
+
+  private setCurrentPageTransferProcesses(transferProcesses: TransferProcess[] | null | undefined) {
+    this.pageTransferProcessesSubject.next((transferProcesses ?? []).slice(0, this.pageItemCount));
   }
 }
