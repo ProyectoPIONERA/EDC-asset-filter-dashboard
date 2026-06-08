@@ -47,6 +47,14 @@ export class DashboardModelExecutionService {
           payload: request.payload,
         };
         this.addOptional(body, 'modelName', request.modelName);
+        this.addOptional(body, 'agreementId', request.agreementId);
+        this.addOptional(body, 'contractId', request.contractId || request.agreementId);
+        this.addOptional(body, 'connectorId', request.connectorId);
+        this.addOptional(body, 'providerId', request.providerId);
+        this.addOptional(body, 'consumerId', request.consumerId);
+        this.addOptional(body, 'counterPartyAddress', request.counterPartyAddress);
+        this.addOptional(body, 'protocol', request.protocol);
+        this.addOptional(body, 'transferType', request.transferType);
         this.addOptional(body, 'usageSessionId', request.usageSessionId);
         this.addOptional(body, 'correlationId', request.correlationId);
         this.addOptional(body, 'benchmarkRunId', request.benchmarkRunId);
@@ -105,7 +113,23 @@ export class DashboardModelExecutionService {
       inputFeatures,
       inputSchemaDraft: this.extractSchemaDraft(asset),
       inputExample: this.extractInputExample(asset),
+      agreementId: asset.agreementId,
+      contractId: asset.contractId || asset.agreementId,
+      connectorId: asset.participantId || asset.providerId,
+      providerId: asset.providerId || asset.participantId,
+      consumerId: asset.consumerId,
+      counterPartyAddress: asset.counterPartyAddress,
+      protocol: asset.isLocal ? undefined : 'dataspace-protocol-http',
+      transferType: this.inferExecutionTransferType(asset),
     };
+  }
+
+  private inferExecutionTransferType(asset: MlGuiAsset): string | undefined {
+    const values = [asset.format, asset.storageType, asset.contentType].filter(Boolean).join(' ').toLowerCase();
+    if (values.includes('http')) {
+      return 'HttpData-PULL';
+    }
+    return undefined;
   }
 
   private extractInferencePath(asset: MlGuiAsset): string {

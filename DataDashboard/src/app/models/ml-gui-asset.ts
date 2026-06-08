@@ -24,6 +24,10 @@ export interface MlGuiAsset {
   hasContractOffers?: boolean;
   contractOffers?: unknown[];
   hasAgreement?: boolean;
+  agreementId?: string;
+  contractId?: string;
+  providerId?: string;
+  consumerId?: string;
   negotiationInProgress?: boolean;
   endpointUrl?: string;
   participantId?: string;
@@ -62,6 +66,14 @@ export interface ExecutableAsset {
   inputFeatures?: InputFeatureSpec[];
   inputSchemaDraft?: string;
   inputExample?: unknown;
+  agreementId?: string;
+  contractId?: string;
+  connectorId?: string;
+  providerId?: string;
+  consumerId?: string;
+  counterPartyAddress?: string;
+  protocol?: string;
+  transferType?: string;
 }
 
 export interface ModelExecutionRequest {
@@ -70,6 +82,14 @@ export interface ModelExecutionRequest {
   path?: string;
   method?: string;
   headers?: Record<string, string>;
+  agreementId?: string;
+  contractId?: string;
+  connectorId?: string;
+  providerId?: string;
+  consumerId?: string;
+  counterPartyAddress?: string;
+  protocol?: string;
+  transferType?: string;
   modelName?: string;
   usageSessionId?: string;
   correlationId?: string;

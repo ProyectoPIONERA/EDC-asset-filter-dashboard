@@ -105,6 +105,14 @@ export class ModelExecutionComponent implements OnInit, OnDestroy {
         assetId: this.selectedAsset.id,
         payload,
         path: this.selectedAsset.executionPath,
+        agreementId: this.selectedAsset.agreementId,
+        contractId: this.selectedAsset.contractId,
+        connectorId: this.selectedAsset.connectorId,
+        providerId: this.selectedAsset.providerId,
+        consumerId: this.selectedAsset.consumerId,
+        counterPartyAddress: this.selectedAsset.counterPartyAddress,
+        protocol: this.selectedAsset.protocol,
+        transferType: this.selectedAsset.transferType,
       })
       .pipe(takeUntil(this.destroy$))
       .subscribe({

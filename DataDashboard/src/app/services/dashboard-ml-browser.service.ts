@@ -8,6 +8,13 @@ import { MlGuiAsset, MlGuiAssetFilter } from '../models/ml-gui-asset';
 
 const DEFAULT_CONTEXT = { '@context': { '@vocab': 'https://w3id.org/edc/v0.0.1/ns/' } };
 
+type AgreementSummary = {
+  assetId: string;
+  agreementId: string;
+  providerId?: string;
+  consumerId?: string;
+};
+
 @Injectable({
   providedIn: 'root',
 })
@@ -45,14 +52,21 @@ export class DashboardMlBrowserService {
         return forkJoin({
           external: external$,
           local: this.fetchLocalAssets(activeConfig, managementUrl).pipe(catchError(() => of([] as MlGuiAsset[]))),
-          agreedAssetIds: this.getAgreedAssetIds(activeConfig, managementUrl).pipe(
-            catchError(() => of(new Set<string>())),
+          agreedAssets: this.getAgreedAssets(activeConfig, managementUrl).pipe(
+            catchError(() => of(new Map<string, AgreementSummary>())),
           ),
         }).pipe(
-          map(({ external, local, agreedAssetIds }) => {
+          map(({ external, local, agreedAssets }) => {
             const merged = this.mergeAssets(local, external);
             merged.forEach(asset => {
-              asset.hasAgreement = asset.isLocal ? true : agreedAssetIds.has(asset.id);
+              const agreement = agreedAssets.get(asset.id);
+              asset.hasAgreement = asset.isLocal ? true : !!agreement;
+              if (agreement) {
+                asset.agreementId = agreement.agreementId;
+                asset.contractId = agreement.agreementId;
+                asset.providerId = agreement.providerId;
+                asset.consumerId = agreement.consumerId;
+              }
               asset.negotiationInProgress = false;
             });
             return this.applyClientFilters(merged, filters, searchTerm);
@@ -65,7 +79,9 @@ export class DashboardMlBrowserService {
   getAgreedAssetIdsForCurrentConnector(): Observable<Set<string>> {
     return combineLatest([this.context.activeConfig$, this.context.managementUrl$]).pipe(
       take(1),
-      switchMap(([activeConfig, managementUrl]) => this.getAgreedAssetIds(activeConfig, managementUrl)),
+      switchMap(([activeConfig, managementUrl]) =>
+        this.getAgreedAssets(activeConfig, managementUrl).pipe(map(agreements => new Set(agreements.keys()))),
+      ),
     );
   }
 
@@ -199,7 +215,7 @@ export class DashboardMlBrowserService {
     );
   }
 
-  private getAgreedAssetIds(activeConfig: EdcConfig, managementUrl: string): Observable<Set<string>> {
+  private getAgreedAssets(activeConfig: EdcConfig, managementUrl: string): Observable<Map<string, AgreementSummary>> {
     const body = {
       ...DEFAULT_CONTEXT,
       filterExpression: [],
@@ -212,16 +228,59 @@ export class DashboardMlBrowserService {
 
     return this.http.post<unknown>(`${managementUrl}/v3/contractagreements/request`, body, { headers }).pipe(
       map(response => {
-        const ids = new Set<string>();
+        const agreements = new Map<string, AgreementSummary>();
         this.normalizeArray(response).forEach(item => {
-          const assetId = this.extractAgreementAssetId(this.asRecord(item));
-          if (assetId) {
-            ids.add(assetId);
+          const agreement = this.asRecord(item);
+          const assetId = this.extractAgreementAssetId(agreement);
+          const agreementId = this.extractAgreementId(agreement);
+          if (assetId && agreementId) {
+            agreements.set(assetId, {
+              assetId,
+              agreementId,
+              providerId: this.extractAgreementParticipant(agreement, [
+                'providerId',
+                'assigner',
+                'edc:providerId',
+                'edc:assigner',
+                'https://w3id.org/edc/v0.0.1/ns/providerId',
+              ]),
+              consumerId: this.extractAgreementParticipant(agreement, [
+                'consumerId',
+                'assignee',
+                'edc:consumerId',
+                'edc:assignee',
+                'https://w3id.org/edc/v0.0.1/ns/consumerId',
+              ]),
+            });
           }
         });
-        return ids;
+        return agreements;
       }),
     );
+  }
+
+  private extractAgreementId(agreement: Record<string, unknown>): string | null {
+    return this.firstString(
+      agreement['@id'],
+      agreement['id'],
+      agreement['agreementId'],
+      agreement['contractAgreementId'],
+      agreement['edc:agreementId'],
+      agreement['edc:contractAgreementId'],
+      agreement['https://w3id.org/edc/v0.0.1/ns/agreementId'],
+      agreement['https://w3id.org/edc/v0.0.1/ns/contractAgreementId'],
+    );
+  }
+
+  private extractAgreementParticipant(agreement: Record<string, unknown>, keys: string[]): string | undefined {
+    const direct = this.firstString(...keys.map(key => agreement[key]));
+    if (direct) {
+      return direct;
+    }
+
+    const policy = this.asRecord(agreement['policy'] || agreement['edc:policy']);
+    const fromPolicy = this.firstString(...keys.map(key => policy[key]));
+    return fromPolicy || undefined;
   }
 
   private extractAgreementAssetId(agreement: Record<string, unknown>): string | null {

@@ -13,8 +13,8 @@
  */
 
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
-import { TransferProcess } from '@think-it-labs/edc-connector-client';
-import { BehaviorSubject, from, map, Observable, of, shareReplay, Subject, takeUntil, tap } from 'rxjs';
+import { QuerySpec, TransferProcess } from '@think-it-labs/edc-connector-client';
+import { BehaviorSubject, Subject, takeUntil } from 'rxjs';
 import { TransferHistoryTableComponent } from '../transfer-history-table/transfer-history-table.component';
 import { AsyncPipe } from '@angular/common';
 import {
@@ -55,10 +55,9 @@ export class TransferHistoryViewComponent implements OnInit, OnDestroy {
 
   private readonly destroy$ = new Subject<void>();
 
-  transferProcesses$: Observable<TransferProcess[]> = of([]);
-  filteredTransferProcesses$: Observable<TransferProcess[]> = of([]);
-  private readonly pageTransferProcessesSubject = new BehaviorSubject<TransferProcess[]>([]);
-  pageTransferProcesses$: Observable<TransferProcess[]> = this.pageTransferProcessesSubject.asObservable();
+  transferProcesses$ = new BehaviorSubject<TransferProcess[]>([]);
+  filteredTransferProcesses$ = new BehaviorSubject<TransferProcess[]>([]);
+  pageTransferProcesses$ = new BehaviorSubject<TransferProcess[]>([]);
 
   pageItemCount = 20;
   initialized = false;
@@ -70,49 +69,81 @@ export class TransferHistoryViewComponent implements OnInit, OnDestroy {
   }
 
   private async fetchHistory() {
-    const transferProcesses$ = from(
-      this.transferProcessService.getAllTransferProcesses({
-        sortField: 'stateTimestamp',
-        sortOrder: 'DESC',
-        filterExpression: [
-          {
-            operandLeft: 'type',
-            operator: '=',
-            operandRight: this.contractType,
-          },
-        ],
-      }),
-    ).pipe(
-      tap(transferProcesses => this.setCurrentPageTransferProcesses(transferProcesses)),
-      shareReplay({ bufferSize: 1, refCount: true }),
-    );
-    this.transferProcesses$ = this.filteredTransferProcesses$ = transferProcesses$;
+    const transferProcesses = await this.fetchTransferHistory();
+    this.transferProcesses$.next(transferProcesses);
+    this.filteredTransferProcesses$.next(transferProcesses);
+    this.pageTransferProcesses$.next(this.firstPage(transferProcesses));
+  }
+
+  private async fetchTransferHistory(): Promise<TransferProcess[]> {
+    const filtered = await this.transferProcessService.getAllTransferProcesses(this.transferHistoryQuery(true));
+    if (filtered.length > 0) {
+      return filtered;
+    }
+
+    const unfiltered = await this.transferProcessService.getAllTransferProcesses(this.transferHistoryQuery(false));
+    const typeAware = unfiltered.filter(transferProcess => this.matchesContractType(transferProcess));
+    return typeAware.length > 0 ? typeAware : unfiltered;
+  }
+
+  private transferHistoryQuery(includeTypeFilter: boolean): QuerySpec {
+    const querySpec: QuerySpec = {
+      sortField: 'stateTimestamp',
+      sortOrder: 'DESC',
+    };
+
+    if (includeTypeFilter) {
+      querySpec.filterExpression = [
+        {
+          operandLeft: 'type',
+          operator: '=',
+          operandRight: this.contractType,
+        },
+      ];
+    }
+
+    return querySpec;
+  }
+
+  private matchesContractType(transferProcess: TransferProcess): boolean {
+    const type = this.transferProcessValue(transferProcess, [
+      'type',
+      'edc:type',
+      'https://w3id.org/edc/v0.0.1/ns/type',
+    ]).toUpperCase();
+    return type.length > 0 && type.includes(this.contractType);
   }
 
   paginationEvent(pageItems: TransferProcess[]) {
-    this.pageTransferProcessesSubject.next(pageItems ?? []);
+    this.pageTransferProcesses$.next(pageItems ?? []);
   }
 
   filter(searchText: string) {
     if (searchText) {
       const lower = searchText.toLowerCase();
-      this.filteredTransferProcesses$ = this.transferProcesses$.pipe(
-        map(transferProcesses =>
-          transferProcesses.filter(
-            transferProcess =>
-              transferProcess.assetId.toLowerCase().includes(lower) ||
-              transferProcess.state.toLowerCase().includes(lower) ||
-              transferProcess.mandatoryValue<string>('edc', 'transferType').toLowerCase().includes(lower) ||
-              transferProcess.contractId.toLowerCase().includes(lower) ||
-              transferProcess.id.toLowerCase().includes(lower),
-          ),
+      this.filteredTransferProcesses$.next(
+        this.transferProcesses$.value.filter(
+          transferProcess =>
+            this.transferProcessValue(transferProcess, ['assetId']).toLowerCase().includes(lower) ||
+            this.transferProcessValue(transferProcess, ['state']).toLowerCase().includes(lower) ||
+            this.transferProcessValue(transferProcess, [
+              'transferType',
+              'edc:transferType',
+              'https://w3id.org/edc/v0.0.1/ns/transferType',
+            ]).toLowerCase().includes(lower) ||
+            this.transferProcessValue(transferProcess, ['contractId']).toLowerCase().includes(lower) ||
+            this.transferProcessValue(transferProcess, ['id', '@id']).toLowerCase().includes(lower),
         ),
-        tap(transferProcesses => this.setCurrentPageTransferProcesses(transferProcesses)),
-        shareReplay({ bufferSize: 1, refCount: true }),
       );
+      this.pageTransferProcesses$.next(this.firstPage(this.filteredTransferProcesses$.value));
     } else {
-      this.filteredTransferProcesses$ = this.transferProcesses$;
+      this.filteredTransferProcesses$.next(this.transferProcesses$.value);
+      this.pageTransferProcesses$.next(this.firstPage(this.filteredTransferProcesses$.value));
     }
+  }
+
+  private firstPage(transferProcesses: TransferProcess[]): TransferProcess[] {
+    return transferProcesses.slice(0, this.pageItemCount);
   }
 
   async onTypeChange(type: 'CONSUMER' | 'PROVIDER') {
@@ -138,10 +169,35 @@ export class TransferHistoryViewComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
-    this.pageTransferProcessesSubject.complete();
+    this.transferProcesses$.complete();
+    this.filteredTransferProcesses$.complete();
+    this.pageTransferProcesses$.complete();
   }
 
-  private setCurrentPageTransferProcesses(transferProcesses: TransferProcess[] | null | undefined) {
-    this.pageTransferProcessesSubject.next((transferProcesses ?? []).slice(0, this.pageItemCount));
+  private transferProcessValue(transferProcess: TransferProcess, keys: string[]): string {
+    const record = transferProcess as unknown as Record<string, unknown>;
+    for (const key of keys) {
+      const value = record[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+
+    const mandatory = transferProcess as unknown as {
+      mandatoryValue?: <T>(namespace: string, key: string) => T;
+    };
+    for (const key of keys) {
+      try {
+        const normalized = key.includes(':') ? key.split(':').pop() || key : key;
+        const value = mandatory.mandatoryValue?.<string>('edc', normalized);
+        if (typeof value === 'string' && value.trim().length > 0) {
+          return value.trim();
+        }
+      } catch {
+        // Older runtimes may not expose optional fields through mandatoryValue.
+      }
+    }
+
+    return '';
   }
 }

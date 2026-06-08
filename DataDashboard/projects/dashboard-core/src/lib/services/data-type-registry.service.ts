@@ -50,9 +50,16 @@ export class DataTypeRegistryService {
 
   public async getAllowedSourceTypes(): Promise<Set<string>> {
     const allowedTypes = new Set<string>();
-    (await (await this.edc.getClient()).management.dataplanes.list()).forEach(dp => {
-      dp.allowedSourceTypes.forEach(it => allowedTypes.add(it.toString()));
-    });
+    try {
+      (await (await this.edc.getClient()).management.dataplanes.list()).forEach(dp => {
+        dp.allowedSourceTypes.forEach(it => allowedTypes.add(it.toString()));
+      });
+    } catch (error) {
+      console.warn('Could not load allowed source data types from EDC data planes; using registered source types.', error);
+    }
+    if (allowedTypes.size === 0) {
+      this.inputComponents.forEach((_component, type) => allowedTypes.add(type));
+    }
     return allowedTypes;
   }
 }
