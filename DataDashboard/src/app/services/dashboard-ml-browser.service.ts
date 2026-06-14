@@ -628,6 +628,7 @@ export class DashboardMlBrowserService {
 
     if (term.length > 0) {
       result = result.filter(asset =>
+        (asset.id || '').toLowerCase().includes(term) ||
         (asset.name || '').toLowerCase().includes(term) ||
         (asset.description || '').toLowerCase().includes(term) ||
         (asset.shortDescription || '').toLowerCase().includes(term) ||
