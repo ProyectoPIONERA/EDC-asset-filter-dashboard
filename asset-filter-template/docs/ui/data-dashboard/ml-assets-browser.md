@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Provides ML Browser parity inside DataDashboard while keeping DataDashboard look-and-feel.
+Provides AI asset discovery and negotiation inside DataDashboard while keeping the DataDashboard look-and-feel.
 
 ## Implemented behavior
 
@@ -20,11 +20,17 @@ Provides ML Browser parity inside DataDashboard while keeping DataDashboard look
 - Merges local + external assets and keeps them distinct by source
 - Supports filters:
   - search term
-  - task
+  - asset source
+  - task category
+  - task type
+  - modality
+  - subtask
+  - endpoint behavior
   - library
-  - framework
+  - language
+  - license
+  - storage type
   - format
-  - asset source (local/external)
 - Supports pagination and item count selector
 - Supports contract actions:
   - local asset: route user to contract definitions

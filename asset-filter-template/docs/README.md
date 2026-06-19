@@ -19,10 +19,6 @@ UI docs (Angular app + how it integrates with extensions).
 
 Contents:
 - `docs/ui/README.md`
-- `docs/ui/ml-browser-app-legacy/README.md`
-- `docs/ui/ml-browser-app-legacy/ui-integration.md`
-- `docs/ui/ml-browser-app-legacy/ui-testing-checklist.md`
-- `docs/ui/ml-browser-app-legacy/sections/README.md`
 - `docs/ui/data-dashboard/README.md`
 - `docs/ui/data-dashboard/assets-local-management.md`
 - `docs/ui/data-dashboard/implementation-history.md`
@@ -30,5 +26,6 @@ Contents:
 - `docs/ui/data-dashboard/ml-assets-browser.md`
 - `docs/ui/data-dashboard/negotiation-flow.md`
 - `docs/ui/data-dashboard/model-execution.md`
+- `docs/ui/data-dashboard/model-benchmarking.md`
 - `docs/ui/data-dashboard/custom-dashboard-usage.md`
 - `docs/ui/data-dashboard/known-issues.md`

@@ -53,9 +53,9 @@ These values are fallback defaults. The runtime now first tries to resolve `conn
 
 Notes:
 - `assetId` is required.
-- `path` is optional. If omitted, the UI uses `daimo:inference_path` or falls back to `/infer`.
+- `path` is optional. If omitted, the UI uses `daimo:inferencePath` or falls back to `/infer`.
 - The extension does not negotiate. You must already have a contract agreement.
-- For direct API callers (not the UI), include `path` or ensure the asset has `daimo:inference_path`. Otherwise the request hits the base URL.
+- For direct API callers (not the UI), include `path` or ensure the asset has `daimo:inferencePath`. Otherwise the request hits the base URL.
 
 ## 5) Internal steps (what the extension does)
 

@@ -22,13 +22,13 @@ Minimal example:
 {
   "@context": {
     "@vocab": "https://w3id.org/edc/v0.0.1/ns/",
-    "daimo": "https://pionera.ai/edc/daimo#"
+    "daimo": "https://w3id.org/pionera/daimo#"
   },
   "@id": "model-example",
   "properties": {
     "name": "Example Model",
     "contenttype": "application/octet-stream",
-    "daimo:pipeline_tag": "text-classification"
+    "daimo:taskCategory": "text-classification"
   },
   "dataAddress": {
     "type": "HttpData",
@@ -47,7 +47,7 @@ Key points:
 
 Use a custom namespace you control:
 ```text
-https://pionera.ai/edc/daimo#
+https://w3id.org/pionera/daimo#
 ```
 
 Then define fields with `daimo:` inside `properties`.
@@ -58,13 +58,18 @@ These are the main facets used in AI catalogs:
 
 | Field | Type | Example | Purpose |
 | --- | --- | --- | --- |
-| `daimo:pipeline_tag` | string | `text-classification` | Task category |
-| `daimo:license` | string | `Apache-2.0` | License |
-| `daimo:tags` | array | `["demo","multiclass"]` | Keywords |
-| `daimo:library_name` | string | `pytorch` | Library/framework |
-| `daimo:datasets` | array | `["iris"]` | Training dataset |
-| `daimo:language` | array | `["en"]` | Language |
-| `daimo:base_model` | string | `org/base-model` | Base model |
+| `daimo:assetType` | string | `machineLearning` | ML asset discriminator |
+| `daimo:taskCategory` | string | `text-classification` | Task category |
+| `daimo:taskType` | string | `classification` | Task type |
+| `daimo:modality` | string | `text` | Data modality |
+| `daimo:subtask` | string | `sentiment-analysis` | More specific task |
+| `daimo:endpointBehavior` | string | `inference` | Endpoint role (`inference`, `metric`, `evaluator`) |
+| `daimo:requestShape` | string | `single` | Endpoint payload shape (`single` or `batch`) |
+| `daimo:libraryName` | string | `scikit-learn` | Library |
+| `dct:license` | string | `Apache-2.0` | License |
+| `dcat:keyword` | array | `["demo","multiclass"]` | Keywords |
+| `dct:language` | array | `["en"]` | Language |
+| `dct:format` | string | `json` | Asset format |
 
 ## 4b) Extended ML metadata fields (optional)
 
@@ -72,56 +77,50 @@ The UI mirrors ML metadata into `daimo:*` fields for completeness. These do not 
 
 | Field | Type | Example | Source |
 | --- | --- | --- | --- |
-| `daimo:task` | array | `["Classification"]` | ML metadata |
-| `daimo:subtask` | array | `["Multi-class"]` | ML metadata |
-| `daimo:algorithm` | array | `["Random Forest"]` | ML metadata |
-| `daimo:library` | array | `["scikit-learn"]` | ML metadata |
-| `daimo:framework` | array | `["PyTorch"]` | ML metadata |
-| `daimo:software` | array | `["Python 3.10"]` | ML metadata |
-| `daimo:format` | string | `onnx` | ML metadata |
-| `daimo:metrics` | object | `{ "accuracy": 0.93 }` | ML metadata |
-| `daimo:hyperparameters` | object | `{ "max_depth": 3 }` | ML metadata |
-| `daimo:trainingData` | string | `iris` | ML metadata |
-| `daimo:validationData` | string | `iris-test` | ML metadata |
+| `daimo:inputSchema` | object | JSON Schema | Model input contract |
+| `daimo:inputExample` | object | `{ "text": "hello" }` | Example request payload |
+| `daimo:metrics` | array/object | `["Accuracy", "F1 Score"]` | Supported metrics for metric/evaluator endpoints or model evaluation metadata |
+| `daimo:input` | array | `["input"]` | Dataset input field hints |
+| `daimo:label` | string | `expected_label` | Dataset label field hint |
 
 ## 5) Performance metadata
 
-Optional fields for metrics and ranking:
+Optional fields for metric/evaluator endpoints and benchmark metric selection:
 
 ```json
-"daimo:metrics": {
-  "accuracy": 0.93,
-  "f1_macro": 0.91
-}
+"daimo:metrics": ["Accuracy", "Precision", "Recall", "F1 Score"]
 ```
 
-Use numeric values if you want range filtering.
+`daimo:metrics` can also be an object when publishing precomputed model metadata. Use numeric values if you want range filtering.
 
 ## 6) Inference endpoint assets
 
 If the asset is an HTTP inference endpoint, include:
 - `contenttype: application/json`
-- `daimo:inference_path: "/infer"`
+- `daimo:inferencePath: "/infer"`
 
 Example:
 ```json
 {
   "@context": {
     "@vocab": "https://w3id.org/edc/v0.0.1/ns/",
-    "daimo": "https://pionera.ai/edc/daimo#"
+    "daimo": "https://w3id.org/pionera/daimo#"
   },
   "@id": "model-mock-infer-v1",
   "properties": {
     "name": "Mock Inference Model v1",
     "contenttype": "application/json",
-    "daimo:pipeline_tag": "text-classification",
-    "daimo:license": "Apache-2.0",
-    "daimo:tags": ["mock","inference","demo"],
-    "daimo:library_name": "custom",
-    "daimo:datasets": ["mock"],
-    "daimo:language": ["en"],
-    "daimo:base_model": "mock-base",
-    "daimo:inference_path": "/infer"
+    "daimo:taskCategory": "text-classification",
+    "daimo:taskType": "classification",
+    "daimo:modality": "text",
+    "daimo:subtask": "sentiment-analysis",
+    "daimo:endpointBehavior": "inference",
+    "daimo:requestShape": "single",
+    "dct:license": "Apache-2.0",
+    "dcat:keyword": ["mock","inference","demo"],
+    "daimo:libraryName": "custom",
+    "dct:language": ["en"],
+    "daimo:inferencePath": "/infer"
   },
   "dataAddress": {
     "type": "HttpData",
@@ -137,12 +136,12 @@ JSON-LD can expand compact keys into full IRIs. Example:
 
 Compact form (input):
 ```text
-"daimo:pipeline_tag": "text-classification"
+"daimo:taskCategory": "text-classification"
 ```
 
 Expanded form (catalog output):
 ```text
-"https://pionera.ai/edc/daimo#pipeline_tag": "text-classification"
+"https://w3id.org/pionera/daimo#taskCategory": "text-classification"
 ```
 
 Our filtering extension supports both forms.
@@ -150,26 +149,38 @@ Our filtering extension supports both forms.
 ## 8) Daimo profile mapping in filtering
 
 When `profile=daimo`:
-- `task` maps to `daimo:pipeline_tag`
-- `license` maps to `daimo:license`
-- `tag` maps to `daimo:tags`
-- `library` maps to `daimo:library_name`
-- `dataset` maps to `daimo:datasets`
-- `language` maps to `daimo:language`
-- `base_model` maps to `daimo:base_model`
+- `task|taskCategory` maps to `daimo:taskCategory`
+- `taskType` maps to `daimo:taskType`
+- `modality` maps to `daimo:modality`
+- `subtask` maps to `daimo:subtask`
+- `subtaskDescription` maps to `daimo:subtaskDescription`
+- `endpointBehavior` maps to `daimo:endpointBehavior`
+- `requestShape` maps to `daimo:requestShape`
+- `inputSchema` maps to `daimo:inputSchema`
+- `inputExample` maps to `daimo:inputExample`
+- `metrics` maps to `daimo:metrics`
+- `library|libraryName` maps to `daimo:libraryName`
+- `language` maps to `dct:language`
+- `license` maps to `dct:license`
+- `format` maps to `dct:format`
+- `keyword|tag` maps to `dcat:keyword`
+- `input` maps to `daimo:input`
+- `label` maps to `daimo:label`
+- `labelType` maps to `daimo:labelType`
+- `datasetVersion`, `datasetRole`, `protocol`, and `randomSeed` map to their DAIMO dataset metadata fields
 
 ## 9) Generic filters (any asset)
 
 You can also filter any field directly:
 ```text
-?filter=properties.daimo:license=MIT
-?filter=properties.daimo:tags~demo
-?filter=https://pionera.ai/edc/daimo#metrics.accuracy>=0.9
+?filter=properties.dct:license=MIT
+?filter=properties.dcat:keyword~demo
+?filter=https://w3id.org/pionera/daimo#metrics.accuracy>=0.9
 ```
 
 ## 10) Common pitfalls
 
 - If `contenttype` is missing, the UI may not recognize the asset.
 - If metrics are strings, numeric range filters will not work.
-- If `daimo:tags` is a string instead of an array, tag filters will fail.
-- If `daimo:inference_path` is missing, inference defaults to `/infer`.
+- If `dcat:keyword` is a string instead of an array, tag filters will fail.
+- If `daimo:inferencePath` is missing, inference defaults to `/infer`.

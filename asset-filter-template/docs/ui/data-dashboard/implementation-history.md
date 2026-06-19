@@ -2,12 +2,10 @@
 
 This document is the consolidated record of what was implemented and adjusted in this workspace for the DataDashboard-based GUI.
 
-## 1) Base migration from legacy ML Browser
+## 1) DataDashboard-Based GUI
 
-- Moved UI documentation to two tracks:
-  - `docs/ui/ml-browser-app-legacy/` (old app)
-  - `docs/ui/data-dashboard/` (current app)
-- Adopted DataDashboard as primary GUI and kept custom ML features in wrapper routes/components.
+- DataDashboard is the only maintained GUI in this repository.
+- Custom ML features are implemented in DataDashboard wrapper routes/components.
 
 ## 2) Routing and navigation
 
@@ -54,11 +52,17 @@ This document is the consolidated record of what was implemented and adjusted in
   - external assets from filter extension (with management fallback)
 - Added filtering facets:
   - search
-  - task
+  - source
+  - task category
+  - task type
+  - modality
+  - subtask
+  - endpoint behavior
   - library
-  - framework
+  - language
+  - license
+  - storage type
   - format
-  - source (local/external)
 - Added details modal with tabs and JSON-LD rendering aligned with catalog behavior.
 
 ## 7) ML Assets negotiation UX
@@ -83,10 +87,9 @@ This document is the consolidated record of what was implemented and adjusted in
   - `DeleteConfirmComponent`
   - `AssetCardComponent`
 - Added input contract metadata fields in ML helper:
-  - `daimo:input_schema_draft`
-  - `daimo:input_schema`
-  - `daimo:input_example`
-  - `daimo:input_features` (derived from schema)
+  - `daimo:inputSchemaDraft`
+  - `daimo:inputSchema`
+  - `daimo:inputExample`
 
 ## 9) Model execution
 
@@ -113,14 +116,16 @@ This document is the consolidated record of what was implemented and adjusted in
   - avg latency
   - p95 latency
   - throughput
-  - optional accuracy when mapping is provided
-- Added ranking score + results table + CSV export.
+  - local classification/regression metrics when label/prediction values are resolvable
+- Added metric selection, metric/evaluator model support, ranking score + results table + CSV export.
 
 ## 11) Benchmarking UX, reliability, and performance upgrade
 
 - Model selection now blocks incompatibilities immediately:
   - model without schema metadata cannot be selected
   - model with non-matching input contract cannot be selected
+  - model with non-matching request shape cannot be selected
+  - output and metric/evaluator benchmark models cannot be mixed
 - Added benchmark model picker enhancements:
   - search by name/id/tags/tasks
   - task filter (`All`, `Classification`, `Regression`, `NLP`, `Vision`, `Other`)
@@ -130,6 +135,7 @@ This document is the consolidated record of what was implemented and adjusted in
   - fails fast before full benchmark when payload/mapping/runtime is invalid
 - Switched benchmark execution from sequential per-row calls to bounded parallel execution per model.
 - Extended executable asset view-model to include `tasks` for filtering.
+- Extended executable asset view-model with `requestShape`, `benchmarkModelType`, and `supportedMetrics`.
 - Updated benchmark documentation with current UX flow and tuning knobs.
 
 ## 12) Dataspace dataset selection for benchmark

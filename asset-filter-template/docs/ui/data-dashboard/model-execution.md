@@ -30,6 +30,6 @@ Run inference requests from DataDashboard against the connector infer endpoint.
 
 ## Notes
 
-- Inference path is auto-resolved from metadata (`daimo:inference_path` variants), fallback `/infer`.
+- Inference path is auto-resolved from metadata (`daimo:inferencePath` variants), fallback `/infer`.
 - UI validates input JSON before sending request.
 - External assets are only executable after agreement is present.

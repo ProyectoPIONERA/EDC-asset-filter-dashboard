@@ -141,14 +141,14 @@ curl -X POST "http://localhost:29191/api/filter/catalog?profile=daimo&task=text-
 
 Generic filters:
 ```bash
-curl -X POST "http://localhost:29191/api/filter/catalog?filter=properties.daimo:license=MIT,Apache-2.0" \
+curl -X POST "http://localhost:29191/api/filter/catalog?filter=properties.dct:license=MIT,Apache-2.0" \
   -H 'Content-Type: application/json' \
   -d @./resources/requests/fetch-catalog.json -s | jq
 ```
 
 Combined filters:
 ```bash
-curl -X POST "http://localhost:29191/api/filter/catalog?filter=properties.daimo:license=MIT,Apache-2.0&filter=properties.daimo:tags~demo" \
+curl -X POST "http://localhost:29191/api/filter/catalog?filter=properties.dct:license=MIT,Apache-2.0&filter=properties.dcat:keyword~demo" \
   -H 'Content-Type: application/json' \
   -d @./resources/requests/fetch-catalog.json -s | jq
 ```
@@ -211,8 +211,9 @@ curl -X POST "http://localhost:29191/api/infer" \
 
 ## 8) UI Smoke Test
 
-- Start UI in `ui/ml-browser-app`:
+- Start the DataDashboard UI from the repository root:
   ```bash
+  cd DataDashboard
   npm start
   ```
 - Open `http://localhost:4200`

@@ -11,9 +11,11 @@ This folder documents the current GUI implementation based on `DataDashboard`.
 - Model observer evidence browser against `/api/model-observer`
 - Benchmarking UX details:
   - schema-compatible model selection gating
+  - request-shape and output/metric model compatibility gating
   - model search + task filters
   - dataspace dataset selection and loading
   - pre-run `Validate Input` probes
+  - selectable benchmark metrics and metric-column ranking
   - bounded parallel benchmark execution
 - Local asset create/edit/delete availability inside ML Assets cards
 - Known issues and troubleshooting specific to DataDashboard integration

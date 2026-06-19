@@ -202,7 +202,7 @@ curl -X POST "http://localhost:29191/api/filter/catalog?profile=daimo&task=text-
 
 Generic filter (no profile):
 ```bash
-curl -X POST "http://localhost:29191/api/filter/catalog?filter=properties.daimo:license=MIT,Apache-2.0" \
+curl -X POST "http://localhost:29191/api/filter/catalog?filter=properties.dct:license=MIT,Apache-2.0" \
   -H 'Content-Type: application/json' \
   -d @./resources/requests/fetch-catalog.json -s | jq
 ```
@@ -235,7 +235,7 @@ Sample output:
 ## 8) UI
 
 ```bash
-cd ./ui/ml-browser-app
+cd ../DataDashboard
 npm install
 npm start
 ```
@@ -277,7 +277,7 @@ Important:
 **Inference returns empty or 404**
 - Ensure contract negotiation finished.
 - Ensure mock inference server is running.
-- Asset must be an endpoint asset with `contenttype: application/json` and `daimo:inference_path`.
+- Asset must be an endpoint asset with `contenttype: application/json` and `daimo:inferencePath`.
 
 **Contract negotiation terminates with policy mismatch**
 - Error example:

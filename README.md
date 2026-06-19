@@ -28,9 +28,9 @@ The repository combines an Angular dashboard with EDC runtime extensions so team
 ## Features
 
 - Discover AI models and datasets across provider and consumer connectors.
-- Filter catalogs using Daimo-style metadata such as task, tags, license, dataset, language, and base model.
+- Filter catalogs using AIModelHub/DAIMO metadata such as asset source, task category, task type, modality, subtask, endpoint behavior, libraries, language, license, storage type, and format.
 - Execute inference through a single `/api/infer` endpoint using only an `assetId`.
-- Benchmark multiple executable models against the same dataset with latency, throughput, success-rate, and optional accuracy metrics.
+- Benchmark multiple executable models against the same dataset with latency, throughput, success-rate, local classification/regression metrics, and metric/evaluator model outputs.
 - Load benchmark datasets either from local files or dataspace assets.
 - Extend the platform with custom EDC connector logic, proxy data planes, and dashboard customizations.
 
@@ -44,7 +44,7 @@ The repository combines an Angular dashboard with EDC runtime extensions so team
 | Node.js | 20+ | Angular dashboard development |
 | npm | 10+ | Dashboard dependencies |
 | Python | 3.10+ | Local benchmark and mock model servers |
-| Docker + Docker Compose | Latest | Optional containerized connector setup |
+| Docker + Docker Compose | Latest | Optional only; the local connector startup uses the Java runtime directly |
 | `curl` + `jq` | Latest | Sample requests and asset registration scripts |
 
 ### Clone the repository
@@ -72,18 +72,29 @@ cd ..
 
 ## Quick Start
 
-The fastest local setup uses Docker for the provider and consumer connectors, Python scripts for the benchmark model pack, and the Angular dev server for the dashboard.
+The recommended local setup starts the provider and consumer connectors directly with the built `final-connector` JARs, then uses Python scripts for the benchmark model pack and the Angular dev server for the dashboard.
 
 ### 1. Start the connectors
 
+From `asset-filter-template/`, start the provider connector in one terminal:
+
 ```bash
 cd asset-filter-template
-docker compose -f docker-compose.connectors.yml up
+java -Dedc.fs.config=./resources/configuration/provider-configuration.properties \
+  -jar ./final-connector/build/libs/connector.jar
+```
+
+Start the consumer connector in a second terminal:
+
+```bash
+cd asset-filter-template
+java -Dedc.fs.config=./resources/configuration/consumer-configuration.properties \
+  -jar ./final-connector/build/libs/connector.jar
 ```
 
 ### 2. Register demo benchmark assets
 
-In a second terminal:
+In another terminal:
 
 ```bash
 cd asset-filter-template
@@ -116,8 +127,8 @@ Open `http://localhost:4200`, select the `Consumer` connector, and explore:
 - `Model Execution` to run inference
 - `Model Benchmarking` to compare multiple models on the same dataset
 
-> [!TIP]
-> If you prefer not to use Docker, you can run the connectors locally with `./scripts/run-final-provider.sh` and `./scripts/run-final-consumer.sh` from `asset-filter-template/`.
+> [!NOTE]
+> `docker-compose.connectors.yml` is kept as an optional reference, but the local workflow used for this project starts both connectors with the Java commands above.
 
 ## Minimal Working Example
 
@@ -199,7 +210,7 @@ curl -X POST "http://localhost:29191/api/infer" \
 3. Navigate to `Model Benchmarking`.
 4. Select at least two models.
 5. Upload a local dataset or pick a dataspace benchmark dataset.
-6. Run `Validate Input`, then launch the full benchmark.
+6. Select the metrics to compare, run `Validate Input`, then launch the full benchmark.
 
 ## Configuration
 
@@ -211,7 +222,7 @@ curl -X POST "http://localhost:29191/api/infer" \
 | `DataDashboard/public/config/edc-connector-config.json` | Preconfigured dashboard connectors and their management/default/protocol URLs |
 | `asset-filter-template/resources/configuration/provider-configuration.properties` | Provider ports, API paths, DSP callback, CORS origins |
 | `asset-filter-template/resources/configuration/consumer-configuration.properties` | Consumer ports, API paths, DSP callback, CORS origins, infer defaults |
-| `asset-filter-template/docker-compose.connectors.yml` | Local container topology for provider and consumer runtimes |
+| `asset-filter-template/docker-compose.connectors.yml` | Optional/reference container topology; not the recommended local startup path |
 
 ### Default local ports
 

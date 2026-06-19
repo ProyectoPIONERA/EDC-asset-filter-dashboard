@@ -74,7 +74,7 @@ Body:
 
 Query parameters:
 - `profile=daimo` enables short Daimo facets
-- `task`, `license`, `tag|tags`, `library`, `dataset`, `language`, `base_model`, `name`
+- AIModelHub-aligned aliases such as `task`, `taskType`, `modality`, `subtask`, `endpointBehavior`, `requestShape`, `library`, `language`, `license`, `format`, `input`, `label`, `metrics`, and dataset lifecycle fields.
 - `filter=<expression>` for generic field expressions
 - `q=<term>` full-text-like search over selected fields
 - `sort=<field>`
@@ -90,9 +90,9 @@ Operators:
 - `>`, `>=`, `<`, `<=` numeric comparison
 
 Examples:
-- `filter=properties.daimo:license=MIT,Apache-2.0`
-- `filter=properties.daimo:tags~demo`
-- `filter=https://pionera.ai/edc/daimo#metrics.accuracy>=0.90`
+- `filter=properties.dct:license=MIT,Apache-2.0`
+- `filter=properties.dcat:keyword~demo`
+- `filter=https://w3id.org/pionera/daimo#metrics.accuracy>=0.90`
 
 Semantics:
 - Multiple `filter=` params are ANDed.
@@ -101,13 +101,28 @@ Semantics:
 ## 3.4 Daimo Profile Mapping
 
 When `profile=daimo`, short keys map to metadata fields:
-- `task -> daimo:pipeline_tag`
-- `license -> daimo:license`
-- `tag|tags -> daimo:tags`
-- `library -> daimo:library_name`
-- `dataset -> daimo:datasets`
-- `language -> daimo:language`
-- `base_model -> daimo:base_model`
+- `task|taskCategory -> daimo:taskCategory`
+- `taskType -> daimo:taskType`
+- `modality -> daimo:modality`
+- `subtask -> daimo:subtask`
+- `subtaskDescription -> daimo:subtaskDescription`
+- `endpointBehavior -> daimo:endpointBehavior`
+- `requestShape -> daimo:requestShape`
+- `inputSchema -> daimo:inputSchema`
+- `inputExample -> daimo:inputExample`
+- `metrics -> daimo:metrics`
+- `library|libraryName -> daimo:libraryName`
+- `language -> dct:language`
+- `license -> dct:license`
+- `format -> dct:format`
+- `keyword|keywords|tag|tags -> dcat:keyword`
+- `input -> daimo:input`
+- `label -> daimo:label`
+- `labelType -> daimo:labelType`
+- `datasetVersion -> daimo:datasetVersion`
+- `datasetRole -> daimo:datasetRole`
+- `protocol -> daimo:protocol`
+- `randomSeed -> daimo:randomSeed`
 - `name -> name`
 
 ## 3.5 Internal Flow
@@ -116,9 +131,11 @@ When `profile=daimo`, short keys map to metadata fields:
 2. Call:
    - `POST {managementBaseUrl}/v3/catalog/request`
 3. Extract datasets from `dcat:dataset` (also supports `dataset` / `datasets`).
-4. Apply filter conditions.
+4. Apply filter conditions inside the connector extension.
 5. Apply sorting.
 6. Return catalog payload with filtered datasets.
+
+This endpoint is a catalog proxy, so filters are applied after `catalog/request` returns. AIModelHub's SQL search extension performs DAIMO alias filtering in the SQL query layer; this EDC extension now matches its alias semantics, but not its SQL pushdown architecture.
 
 ## 3.6 Response Behavior
 
@@ -143,7 +160,7 @@ curl -X POST "http://localhost:29191/api/filter/catalog?profile=daimo&task=text-
 Combined generic filters + sorting:
 
 ```bash
-curl -X POST "http://localhost:29191/api/filter/catalog?filter=properties.daimo:license=MIT&filter=properties.daimo:tags~demo&sort=name&order=asc" \
+curl -X POST "http://localhost:29191/api/filter/catalog?filter=properties.dct:license=MIT&filter=properties.dcat:keyword~demo&sort=name&order=asc" \
   -H "Content-Type: application/json" \
   -d @resources/requests/fetch-catalog.json
 ```

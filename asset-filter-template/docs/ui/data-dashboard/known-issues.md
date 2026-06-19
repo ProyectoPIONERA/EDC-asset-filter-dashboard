@@ -187,7 +187,7 @@ location.reload();
 
 ### Why this happens
 - Benchmarking now enforces model input contract checks before execution.
-- Input contract is read from model asset metadata (`daimo:input_schema` / `daimo:input_features`).
+- Input contract is read from model asset metadata `daimo:inputSchema`.
 
 ### Fix
 - Edit the model asset in `Assets` page with ML metadata helper enabled.

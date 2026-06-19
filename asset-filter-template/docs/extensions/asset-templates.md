@@ -89,22 +89,23 @@ We use a Daimo-style schema for filterable model metadata:
 {
   "@context": {
     "@vocab": "https://w3id.org/edc/v0.0.1/ns/",
-    "daimo": "https://pionera.ai/edc/daimo#"
+    "daimo": "https://w3id.org/pionera/daimo#"
   },
   "@id": "model-your-id",
   "properties": {
     "name": "Model Display Name",
     "contenttype": "application/octet-stream",
-    "daimo:pipeline_tag": "text-classification",
-    "daimo:license": "Apache-2.0",
-    "daimo:tags": ["demo"],
-    "daimo:library_name": "pytorch",
-    "daimo:datasets": ["dataset-name"],
-    "daimo:language": ["en"],
-    "daimo:base_model": "org/base-model",
-    "daimo:metrics": {
-      "accuracy": 0.9
-    }
+    "daimo:taskCategory": "text-classification",
+    "dct:license": "Apache-2.0",
+    "dcat:keyword": ["demo"],
+    "daimo:libraryName": "pytorch",
+    "daimo:taskType": "classification",
+    "daimo:modality": "text",
+    "daimo:subtask": "sentiment-analysis",
+    "daimo:endpointBehavior": "inference",
+    "daimo:requestShape": "single",
+    "dct:language": ["en"],
+    "daimo:metrics": ["Accuracy", "Precision", "Recall", "F1 Score"]
   },
   "dataAddress": {
     "type": "HttpData",
@@ -123,7 +124,7 @@ Details for these fields are documented in:
 
 For assets that are **HTTP inference endpoints**, add:
 - `contenttype: application/json`
-- `daimo:inference_path: "/infer"` (or your endpoint path)
+- `daimo:inferencePath: "/infer"` (or your endpoint path)
 
 Example:
 
@@ -131,20 +132,23 @@ Example:
 {
   "@context": {
     "@vocab": "https://w3id.org/edc/v0.0.1/ns/",
-    "daimo": "https://pionera.ai/edc/daimo#"
+    "daimo": "https://w3id.org/pionera/daimo#"
   },
   "@id": "model-mock-infer-v1",
   "properties": {
     "name": "Mock Inference Model v1",
     "contenttype": "application/json",
-    "daimo:pipeline_tag": "text-classification",
-    "daimo:license": "Apache-2.0",
-    "daimo:tags": ["mock", "inference", "demo"],
-    "daimo:library_name": "custom",
-    "daimo:datasets": ["mock"],
-    "daimo:language": ["en"],
-    "daimo:base_model": "mock-base",
-    "daimo:inference_path": "/infer"
+    "daimo:taskCategory": "text-classification",
+    "dct:license": "Apache-2.0",
+    "dcat:keyword": ["mock", "inference", "demo"],
+    "daimo:libraryName": "custom",
+    "daimo:taskType": "classification",
+    "daimo:modality": "text",
+    "daimo:subtask": "sentiment-analysis",
+    "daimo:endpointBehavior": "inference",
+    "daimo:requestShape": "single",
+    "dct:language": ["en"],
+    "daimo:inferencePath": "/infer"
   },
   "dataAddress": {
     "type": "HttpData",
@@ -155,7 +159,7 @@ Example:
 ```
 
 Notes:
-- The UI’s **Model Execution** page only lists executable assets if `contenttype` includes `application/json`, or `daimo:tags` contains `inference` or `endpoint`.
+- The UI’s **Model Execution** page only lists executable assets if `contenttype` includes `application/json`, or `dcat:keyword` contains `inference` or `endpoint`.
 
 ---
 

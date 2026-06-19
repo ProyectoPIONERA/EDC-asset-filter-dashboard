@@ -1,6 +1,6 @@
 # Filtering Extension (Consumer-Side)
 
-This document describes the server-side filtering extension used to query catalogs and apply Daimo-style facets. It runs inside the consumer connector and exposes a single API endpoint.
+This document describes the connector-side filtering extension used to query catalogs and apply Daimo-style facets. It runs inside the consumer connector and exposes a single API endpoint.
 
 ---
 
@@ -40,8 +40,10 @@ If either field is missing, the API returns:
 1. Accepts a catalog request body
 2. Calls consumer management API `/v3/catalog/request`
 3. Extracts datasets from the catalog
-4. Applies server-side filters and sorting
+4. Applies connector-side filters and sorting to the catalog response
 5. Returns a catalog with only matching datasets
+
+Unlike the AIModelHub SQL search extension, this proxy endpoint does not push DAIMO predicates into a SQL asset index. It filters the returned catalog payload inside the connector extension.
 
 ## 4) Daimo profile filters
 
@@ -49,13 +51,32 @@ Use `profile=daimo` to enable Daimo-style params.
 
 | Query param | Mapped field |
 | --- | --- |
-| `task` | `daimo:pipeline_tag` |
-| `license` | `daimo:license` |
-| `tag` | `daimo:tags` |
-| `library` | `daimo:library_name` |
-| `dataset` | `daimo:datasets` |
-| `language` | `daimo:language` |
-| `base_model` | `daimo:base_model` |
+| `assetType` | `assetType` |
+| `description` | `dct:description` |
+| `format` | `dct:format` |
+| `keyword`, `keywords`, `tag`, `tags` | `dcat:keyword` |
+| `language` | `dct:language` |
+| `license` | `dct:license` |
+| `library`, `libraryName` | `daimo:libraryName` |
+| `metrics` | `daimo:metrics` |
+| `modality` | `daimo:modality` |
+| `name` | `name` |
+| `requestShape` | `daimo:requestShape` |
+| `task` | `daimo:taskCategory` |
+| `taskCategory` | `daimo:taskCategory` |
+| `taskType` | `daimo:taskType` |
+| `subtask` | `daimo:subtask` |
+| `subtaskDescription` | `daimo:subtaskDescription` |
+| `endpointBehavior` | `daimo:endpointBehavior` |
+| `inputSchema` | `daimo:inputSchema` |
+| `inputExample` | `daimo:inputExample` |
+| `input` | `daimo:input` |
+| `label` | `daimo:label` |
+| `labelType` | `daimo:labelType` |
+| `datasetVersion` | `daimo:datasetVersion` |
+| `datasetRole` | `daimo:datasetRole` |
+| `protocol` | `daimo:protocol` |
+| `randomSeed` | `daimo:randomSeed` |
 
 Example:
 ```text
@@ -72,9 +93,9 @@ Multi-value OR:
 Use one or more `filter=` parameters for any field:
 
 ```text
-?filter=properties.daimo:license=MIT,Apache-2.0
-?filter=properties.daimo:tags~demo
-?filter=https://pionera.ai/edc/daimo#metrics.accuracy>=0.90
+?filter=properties.dct:license=MIT,Apache-2.0
+?filter=properties.dcat:keyword~demo
+?filter=https://w3id.org/pionera/daimo#metrics.accuracy>=0.90
 ```
 
 Operators:
@@ -94,10 +115,24 @@ Comma-separated values are ORed.
 Search is applied to:
 - `name`
 - `id`
-- `daimo:tags`
-- `daimo:pipeline_tag`
-- `daimo:base_model`
-- `daimo:library_name`
+- `assetType`
+- `description` / `dct:description`
+- `dcat:keyword`
+- `daimo:taskCategory`
+- `daimo:taskType`
+- `daimo:modality`
+- `daimo:subtask`
+- `daimo:subtaskDescription`
+- `daimo:endpointBehavior`
+- `daimo:requestShape`
+- `daimo:libraryName`
+- `dct:language`
+- `dct:license`
+- `dct:format`
+- `daimo:input`
+- `daimo:label`
+- `daimo:labelType`
+- `daimo:metrics`
 
 ## 7) Sorting
 
@@ -112,7 +147,7 @@ Strings are compared case-insensitively. Numbers are compared as doubles.
 ## 8) JSON-LD expansion note
 
 Catalog outputs may expand `daimo:` keys into full IRIs:
-- `daimo:pipeline_tag` becomes `https://pionera.ai/edc/daimo#pipeline_tag`
+- `daimo:taskCategory` becomes `https://w3id.org/pionera/daimo#taskCategory`
 
 The filter handles both compact and expanded forms.
 

@@ -13,14 +13,18 @@ The asset create/update modal includes an optional **ML Metadata** helper.
 
 - Toggle: `Enable ML metadata helper`
 - UI labels are business labels only (no ontology names shown in the form)
-- All helper fields write to `daimo:*` properties in the asset `properties`
+- DAIMO metadata is written under `assetData.JS_DAIMO_Model` or `assetData.JS_DAIMO_Dataset`; DCAT/DCT fields remain in top-level `properties`.
 
 ## Basic fields (always visible)
 
 - Short Description (free text)
 - Version (string)
 - Task (single select, controlled list)
+- Task Type (single select, controlled list)
 - Modality (multi select): `tabular`, `text`, `image`, `audio`, `video`, `multimodal`
+- Subtask (single select, controlled list)
+- Endpoint Behavior (single select): `inference`, `metric`, `evaluator`
+- Request Shape (single select): `single`, `batch`
 - Keywords (multi select, example vocabulary)
 - License (single select, SPDX-style common values)
 - Maturity Status (single select): `experimental`, `validated`, `production`, `deprecated`
@@ -29,15 +33,12 @@ The asset create/update modal includes an optional **ML Metadata** helper.
 
 - Library / Runtime (multi select)
 - Languages (multi select, shown when modality includes `text` or `multimodal`)
-- Architecture / Family
-- Base Model
 - Model Size:
   - Parameters
   - Artifact Size (MB)
   - Quantization (single select)
-- Performance Claims:
-  - Metric (single select)
-  - Dataset (single select)
+- Evaluation Metadata:
+  - Supported Metrics
   - Report URL
 - Service Integration:
   - Model Format (single select)
@@ -61,38 +62,38 @@ The asset create/update modal includes an optional **ML Metadata** helper.
 
 ## Daimo mapping used by the helper
 
-- Short Description -> `daimo:short_description`
-- Version -> `daimo:model_version`
-- Task -> `daimo:pipeline_tag`
+- Short Description -> `shortDescription`
+- Version -> `daimo:modelVersion`
+- Task -> `daimo:taskCategory`
+- Task Type -> `daimo:taskType`
 - Modality -> `daimo:modality`
-- Keywords -> `daimo:tags`
-- License -> `daimo:license`
-- Maturity Status -> `daimo:maturity_status`
-- Library / Runtime -> `daimo:library_name`
-- Languages -> `daimo:language`
-- Architecture / Family -> `daimo:architecture_family`
-- Base Model -> `daimo:base_model`
-- Model Format -> `daimo:format`
-- Inference Path -> `daimo:inference_path`
-- Input Schema Draft -> `daimo:input_schema_draft`
-- Input Schema -> `daimo:input_schema`
-- Derived Input Features -> `daimo:input_features`
-- Input Example -> `daimo:input_example`
-- Parameters -> `daimo:parameter_count`
-- Artifact Size -> `daimo:artifact_size_mb`
+- Subtask -> `daimo:subtask`
+- Endpoint Behavior -> `daimo:endpointBehavior`
+- Request Shape -> `daimo:requestShape`
+- Keywords -> `dcat:keyword`
+- License -> `dct:license`
+- Maturity Status -> `daimo:maturityStatus`
+- Library / Runtime -> `daimo:libraryName`
+- Languages -> `dct:language`
+- Model Format -> `dct:format`
+- Inference Path -> `daimo:inferencePath`
+- Input Schema Draft -> `daimo:inputSchemaDraft`
+- Input Schema -> `daimo:inputSchema`
+- Input Example -> `daimo:inputExample`
+- Parameters -> `daimo:parameterCount`
+- Artifact Size -> `daimo:artifactSizeMb`
 - Quantization -> `daimo:quantization`
-- Performance Metric -> `daimo:performance_metric`
-- Performance Dataset -> `daimo:performance_dataset` (and compatibility mirror `daimo:datasets`)
-- Performance Report -> `daimo:performance_report`
-- Intended Use -> `daimo:intended_use`
+- Supported Metrics -> `daimo:metrics`
+- Performance Report -> `daimo:performanceReport`
+- Intended Use -> `daimo:intendedUse`
 - Limitations -> `daimo:limitations`
-- PII-safe -> `daimo:pii_safe`
-- Regulated domain -> `daimo:regulated_domain`
-- Human-in-the-loop required -> `daimo:human_in_the_loop_required`
-- Latency p95 -> `daimo:latency_p95_ms`
-- Throughput -> `daimo:throughput_rps`
-- Rate limits -> `daimo:rate_limits`
-- Availability tier -> `daimo:availability_tier`
+- PII-safe -> `daimo:piiSafe`
+- Regulated domain -> `daimo:regulatedDomain`
+- Human-in-the-loop required -> `daimo:humanInTheLoopRequired`
+- Latency p95 -> `daimo:latencyP95Ms`
+- Throughput -> `daimo:throughputRps`
+- Rate limits -> `daimo:rateLimits`
+- Availability tier -> `daimo:availabilityTier`
 
 ## Filtering local assets
 
@@ -101,7 +102,7 @@ Asset list search now matches:
 - ID, Name, Type, Content-Type
 - plus the Daimo metadata fields above
 
-This allows local discovery by ML metadata terms (task, runtime, modality, maturity, performance claims, safety flags, and SLO hints).
+This allows local discovery by ML metadata terms (task, runtime, modality, maturity, evaluation metadata, safety flags, and SLO hints).
 
 ## Files
 

@@ -15,7 +15,7 @@ This file tracks the dashboard changes made in this workspace (compared to upstr
 - Implemented merged asset view:
   - external assets from filter extension
   - local assets from management API
-- Added server-driven and client-side filters (tasks, libraries, frameworks, formats, source)
+- Added server-driven and client-side filters aligned with AIModelHub metadata facets
 - Added Catalog-style connector selection and manual catalog request
 - Added `View Details` modal with compacted and expanded JSON-LD rendering
 - Added local asset actions in ML cards using the same icon/button pattern as `Assets`:
@@ -39,7 +39,6 @@ This file tracks the dashboard changes made in this workspace (compared to upstr
   - input example JSON
   - interactive field builder for schema generation
   - quick templates with prefilled schema + examples
-  - auto-derived `daimo:input_features` from schema
 
 ## Negotiation flow in ML Assets
 
@@ -78,8 +77,9 @@ This file tracks the dashboard changes made in this workspace (compared to upstr
   - success rate
   - average and p95 latency
   - throughput
-  - optional accuracy
-  - score-based ranking and top model summary
+  - selectable classification/regression metrics for output models
+  - `daimo:metrics`-driven metric/evaluator model results
+  - click-to-rank metric columns and top model summary
 - Added CSV export of benchmark results.
 - Benchmark completion/failure is posted to the model observer journal.
 
