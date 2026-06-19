@@ -91,15 +91,16 @@ public class ModelObserverDomainEventEnricher {
 
     private Map<String, Object> assetSummary(Asset asset) {
         var properties = asset.getProperties() == null ? Map.<String, Object>of() : asset.getProperties();
+        var daimoMetadata = daimoMetadata(properties);
         var dataAddress = asset.getDataAddress();
         var tags = listValue(firstNonBlank(
-                properties.get("daimo:tags"),
-                properties.get("https://pionera.ai/edc/daimo#tags")
+                properties.get("dcat:keyword"),
+                properties.get("keywords")
         ));
         var assetKind = firstNonBlank(
-                properties.get("daimo:asset_kind"),
-                properties.get("https://pionera.ai/edc/daimo#asset_kind"),
-                inferAssetKind(properties, tags)
+                daimoMetadata.get("daimo:assetKind"),
+                daimoMetadata.get("https://w3id.org/pionera/daimo#assetKind"),
+                inferAssetKind(properties, daimoMetadata, tags)
         );
 
         return compactMap(
@@ -107,26 +108,20 @@ public class ModelObserverDomainEventEnricher {
                 "assetName", firstNonBlank(asset.getName(), properties.get("name"), properties.get("dct:title")),
                 "assetKind", assetKind,
                 "assetType", firstNonBlank(properties.get("type"), properties.get("asset:prop:type"), "machineLearning"),
-                "contentType", firstNonBlank(asset.getContentType(), properties.get("contenttype"), properties.get("daimo:contenttype")),
-                "task", firstNonBlank(properties.get("daimo:pipeline_tag"),
-                        properties.get("https://pionera.ai/edc/daimo#pipeline_tag")),
-                "library", firstNonBlank(properties.get("daimo:library_name"),
-                        properties.get("https://pionera.ai/edc/daimo#library_name")),
+                "contentType", firstNonBlank(asset.getContentType(), properties.get("contenttype")),
+                "task", firstNonBlank(daimoMetadata.get("daimo:taskCategory"),
+                        daimoMetadata.get("https://w3id.org/pionera/daimo#taskCategory")),
+                "library", firstNonBlank(daimoMetadata.get("daimo:libraryName"),
+                        daimoMetadata.get("https://w3id.org/pionera/daimo#libraryName")),
                 "tags", tags,
                 "license", listValue(firstNonBlank(
-                        properties.get("daimo:license"),
-                        properties.get("https://pionera.ai/edc/daimo#license")
+                        daimoMetadata.get("dct:license"),
+                        properties.get("dct:license")
                 )),
-                "hasInputSchema", hasAny(properties,
-                        "daimo:input_schema",
-                        "https://pionera.ai/edc/daimo#input_schema",
-                        "input_schema",
+                "hasInputSchema", hasAny(daimoMetadata,
+                        "daimo:inputSchema",
+                        "https://w3id.org/pionera/daimo#inputSchema",
                         "inputSchema"),
-                "hasInputFeatures", hasAny(properties,
-                        "daimo:input_features",
-                        "https://pionera.ai/edc/daimo#input_features",
-                        "input_features",
-                        "inputFeatures"),
                 "dataAddressType", dataAddress == null ? null : dataAddress.getType()
         );
     }
@@ -176,19 +171,44 @@ public class ModelObserverDomainEventEnricher {
         return assetIds;
     }
 
-    private String inferAssetKind(Map<String, Object> properties, List<String> tags) {
+    private String inferAssetKind(Map<String, Object> properties, Map<String, Object> daimoMetadata, List<String> tags) {
         var tokens = String.join(" ", List.of(
                 String.join(" ", tags),
-                stringValue(firstNonBlank(properties.get("daimo:pipeline_tag"),
-                        properties.get("https://pionera.ai/edc/daimo#pipeline_tag"))),
-                stringValue(firstNonBlank(properties.get("daimo:benchmark_dataset"),
-                        properties.get("benchmark_dataset")))
+                stringValue(firstNonBlank(daimoMetadata.get("daimo:taskCategory"),
+                        daimoMetadata.get("https://w3id.org/pionera/daimo#taskCategory"))),
+                stringValue(firstNonBlank(daimoMetadata.get("daimo:benchmark_dataset"),
+                        daimoMetadata.get("benchmark_dataset"),
+                        daimoMetadata.get("benchmarkDataset")))
         )).toLowerCase(Locale.ROOT);
 
-        if (tokens.matches(".*\\b(dataset|benchmark_dataset|samples|ground[- ]truth)\\b.*")) {
+        if (tokens.matches(".*\\b(dataset|benchmarkdataset|samples|ground[- ]truth)\\b.*")) {
             return "dataset";
         }
         return "model";
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> daimoMetadata(Map<String, Object> properties) {
+        var assetData = firstNonBlank(
+                properties.get("assetData"),
+                properties.get("edc:assetData"),
+                properties.get("https://w3id.org/edc/v0.0.1/ns/assetData")
+        );
+        if (!(assetData instanceof Map<?, ?> assetDataMap)) {
+            return Map.of();
+        }
+
+        var model = assetDataMap.get("JS_DAIMO_Model");
+        if (model instanceof Map<?, ?> modelMap) {
+            return (Map<String, Object>) modelMap;
+        }
+
+        var dataset = assetDataMap.get("JS_DAIMO_Dataset");
+        if (dataset instanceof Map<?, ?> datasetMap) {
+            return (Map<String, Object>) datasetMap;
+        }
+
+        return Map.of();
     }
 
     private boolean hasAny(Map<String, Object> properties, String... keys) {

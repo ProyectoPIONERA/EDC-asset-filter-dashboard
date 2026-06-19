@@ -1,11 +1,18 @@
 {
   "@context": {
-    "@vocab": "https://w3id.org/edc/v0.0.1/ns/"
+    "@vocab": "https://w3id.org/edc/v0.0.1/ns/",
+    "dct": "http://purl.org/dc/terms/",
+    "dcterms": "http://purl.org/dc/terms/",
+    "dcat": "http://www.w3.org/ns/dcat#",
+    "daimo": "https://w3id.org/pionera/daimo#"
   },
   "@id": "assetId",
   "properties": {
     "name": "product description",
-    "contenttype": "application/json"
+    "contenttype": "application/json",
+    "assetData": {
+      "JS_DAIMO_Model": {}
+    }
   },
   "dataAddress": {
     "type": "HttpData",

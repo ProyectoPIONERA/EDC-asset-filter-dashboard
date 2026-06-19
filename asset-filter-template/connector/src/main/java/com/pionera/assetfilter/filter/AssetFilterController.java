@@ -50,9 +50,35 @@ import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 @Produces(MediaType.APPLICATION_JSON)
 public class AssetFilterController {
 
-    private static final String DAIMO_NAMESPACE = "https://pionera.ai/edc/daimo#";
+    private static final String DAIMO_NAMESPACE = "https://w3id.org/pionera/daimo#";
+    private static final String DCT_NAMESPACE = "http://purl.org/dc/terms/";
+    private static final String DCAT_NAMESPACE = "http://www.w3.org/ns/dcat#";
     private static final Set<String> DAIMO_FILTER_KEYS = Set.of(
-            "task", "license", "tag", "tags", "library", "dataset", "language", "base_model", "name"
+            "assettype", "daimo:assettype",
+            "description", "daimo:description",
+            "format", "daimo:format",
+            "keyword", "keywords", "tag", "tags", "daimo:keyword", "daimo:keywords",
+            "language", "daimo:language", "dct:language", "dcterms:language",
+            "license", "daimo:license", "dct:license", "dcterms:license",
+            "library", "libraryname", "daimo:libraryname",
+            "metrics", "daimo:metrics",
+            "modality", "daimo:modality",
+            "name", "daimo:name",
+            "requestshape", "daimo:requestshape",
+            "task", "taskcategory", "daimo:taskcategory",
+            "tasktype", "daimo:tasktype",
+            "subtask", "daimo:subtask",
+            "subtaskdescription", "daimo:subtaskdescription",
+            "endpointbehavior", "daimo:endpointbehavior",
+            "inputschema", "daimo:inputschema",
+            "inputexample", "daimo:inputexample",
+            "input", "daimo:input",
+            "label", "daimo:label",
+            "labeltype", "daimo:labeltype",
+            "datasetversion", "daimo:datasetversion",
+            "datasetrole", "daimo:datasetrole",
+            "protocol", "daimo:protocol",
+            "randomseed", "daimo:randomseed"
     );
 
     private final ObjectMapper mapper;
@@ -227,7 +253,7 @@ public class AssetFilterController {
                 for (var raw : entry.getValue()) {
                     var parsed = parseFilterExpression(raw);
                     if (parsed != null) {
-                        filters.add(parsed);
+                        filters.add(normalizeFilterCondition(parsed));
                     }
                 }
                 continue;
@@ -256,6 +282,19 @@ public class AssetFilterController {
             }
         }
         return result;
+    }
+
+    private FilterCondition normalizeFilterCondition(FilterCondition filter) {
+        if (filter == null || filter.key == null) {
+            return filter;
+        }
+        var normalizedKey = filter.key.startsWith("properties.")
+                ? filter.key.substring("properties.".length())
+                : filter.key;
+        if (DAIMO_FILTER_KEYS.contains(normalizedKey.toLowerCase(Locale.ROOT))) {
+            return new FilterCondition(mapDaimoKey(normalizedKey), filter.operator, filter.values);
+        }
+        return filter;
     }
 
     private boolean matchesAll(JsonNode dataset, List<FilterCondition> filters) {
@@ -292,10 +331,25 @@ public class AssetFilterController {
         var q = query.toLowerCase(Locale.ROOT);
         return containsValue(extractValues(dataset, "name"), q) ||
                 containsValue(extractValues(dataset, "id"), q) ||
-                containsValue(extractValues(dataset, "daimo:tags"), q) ||
-                containsValue(extractValues(dataset, "daimo:pipeline_tag"), q) ||
-                containsValue(extractValues(dataset, "daimo:base_model"), q) ||
-                containsValue(extractValues(dataset, "daimo:library_name"), q);
+                containsValue(extractValues(dataset, "assetType"), q) ||
+                containsValue(extractValues(dataset, "description"), q) ||
+                containsValue(extractValues(dataset, "dct:description"), q) ||
+                containsValue(extractValues(dataset, "dcat:keyword"), q) ||
+                containsValue(extractValues(dataset, "daimo:taskCategory"), q) ||
+                containsValue(extractValues(dataset, "daimo:taskType"), q) ||
+                containsValue(extractValues(dataset, "daimo:modality"), q) ||
+                containsValue(extractValues(dataset, "daimo:subtask"), q) ||
+                containsValue(extractValues(dataset, "daimo:subtaskDescription"), q) ||
+                containsValue(extractValues(dataset, "daimo:endpointBehavior"), q) ||
+                containsValue(extractValues(dataset, "daimo:requestShape"), q) ||
+                containsValue(extractValues(dataset, "daimo:libraryName"), q) ||
+                containsValue(extractValues(dataset, "dct:language"), q) ||
+                containsValue(extractValues(dataset, "dct:license"), q) ||
+                containsValue(extractValues(dataset, "dct:format"), q) ||
+                containsValue(extractValues(dataset, "daimo:input"), q) ||
+                containsValue(extractValues(dataset, "daimo:label"), q) ||
+                containsValue(extractValues(dataset, "daimo:labelType"), q) ||
+                containsValue(extractValues(dataset, "daimo:metrics"), q);
     }
 
     private boolean matchesContains(List<JsonNode> values, List<String> targets) {
@@ -429,6 +483,7 @@ public class AssetFilterController {
         var props = firstNode(dataset, "properties");
         if (props != null && props.isObject()) {
             baseNodes.add(props);
+            addDaimoAssetDataNodes(baseNodes, props);
         }
 
         var result = new ArrayList<JsonNode>();
@@ -442,6 +497,23 @@ public class AssetFilterController {
         }
 
         return result;
+    }
+
+    private void addDaimoAssetDataNodes(List<JsonNode> baseNodes, JsonNode properties) {
+        var assetData = firstNode(properties, "assetData", "edc:assetData", "https://w3id.org/edc/v0.0.1/ns/assetData");
+        if (assetData == null || !assetData.isObject()) {
+            return;
+        }
+
+        var modelNode = firstNode(assetData, "JS_DAIMO_Model");
+        if (modelNode != null && modelNode.isObject()) {
+            baseNodes.add(modelNode);
+        }
+
+        var datasetNode = firstNode(assetData, "JS_DAIMO_Dataset");
+        if (datasetNode != null && datasetNode.isObject()) {
+            baseNodes.add(datasetNode);
+        }
     }
 
     private List<String> normalizeKeyPath(String key) {
@@ -496,6 +568,10 @@ public class AssetFilterController {
 
         if (segment.startsWith("daimo:")) {
             candidates.add(DAIMO_NAMESPACE + segment.substring(6));
+        } else if (segment.startsWith("dct:") || segment.startsWith("dcterms:")) {
+            candidates.add(DCT_NAMESPACE + segment.substring(segment.indexOf(':') + 1));
+        } else if (segment.startsWith("dcat:")) {
+            candidates.add(DCAT_NAMESPACE + segment.substring(5));
         } else if (isFirst && "metrics".equals(segment)) {
             candidates.add(DAIMO_NAMESPACE + "metrics");
         }
@@ -541,14 +617,32 @@ public class AssetFilterController {
 
     private String mapDaimoKey(String key) {
         return switch (key.toLowerCase(Locale.ROOT)) {
-            case "task" -> "daimo:pipeline_tag";
-            case "license" -> "daimo:license";
-            case "tag", "tags" -> "daimo:tags";
-            case "library" -> "daimo:library_name";
-            case "dataset" -> "daimo:datasets";
-            case "language" -> "daimo:language";
-            case "base_model" -> "daimo:base_model";
-            case "name" -> "name";
+            case "assettype", "daimo:assettype" -> "assetType";
+            case "description", "daimo:description" -> "dct:description";
+            case "format", "daimo:format" -> "dct:format";
+            case "keyword", "keywords", "tag", "tags", "daimo:keyword", "daimo:keywords" -> "dcat:keyword";
+            case "language", "daimo:language", "dct:language", "dcterms:language" -> "dct:language";
+            case "license", "daimo:license", "dct:license", "dcterms:license" -> "dct:license";
+            case "library", "libraryname", "daimo:libraryname" -> "daimo:libraryName";
+            case "metrics", "daimo:metrics" -> "daimo:metrics";
+            case "modality", "daimo:modality" -> "daimo:modality";
+            case "name", "daimo:name" -> "name";
+            case "requestshape", "daimo:requestshape" -> "daimo:requestShape";
+            case "task", "taskcategory" -> "daimo:taskCategory";
+            case "daimo:taskcategory" -> "daimo:taskCategory";
+            case "tasktype", "daimo:tasktype" -> "daimo:taskType";
+            case "subtask", "daimo:subtask" -> "daimo:subtask";
+            case "subtaskdescription", "daimo:subtaskdescription" -> "daimo:subtaskDescription";
+            case "endpointbehavior", "daimo:endpointbehavior" -> "daimo:endpointBehavior";
+            case "inputschema", "daimo:inputschema" -> "daimo:inputSchema";
+            case "inputexample", "daimo:inputexample" -> "daimo:inputExample";
+            case "input", "daimo:input" -> "daimo:input";
+            case "label", "daimo:label" -> "daimo:label";
+            case "labeltype", "daimo:labeltype" -> "daimo:labelType";
+            case "datasetversion", "daimo:datasetversion" -> "daimo:datasetVersion";
+            case "datasetrole", "daimo:datasetrole" -> "daimo:datasetRole";
+            case "protocol", "daimo:protocol" -> "daimo:protocol";
+            case "randomseed", "daimo:randomseed" -> "daimo:randomSeed";
             default -> key;
         };
     }

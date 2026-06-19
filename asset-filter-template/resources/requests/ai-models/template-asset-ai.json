@@ -1,7 +1,10 @@
 {
   "@context": {
     "@vocab": "https://w3id.org/edc/v0.0.1/ns/",
-    "daimo": "https://pionera.ai/edc/daimo#"
+    "dct": "http://purl.org/dc/terms/",
+    "dcterms": "http://purl.org/dc/terms/",
+    "dcat": "http://www.w3.org/ns/dcat#",
+    "daimo": "https://w3id.org/pionera/daimo#"
   },
   "@id": "model-your-id",
   "properties": {
@@ -9,23 +12,30 @@
     "description": "Short description visible in the browser card and search.",
     "version": "1.0.0",
     "contenttype": "application/octet-stream",
-    "daimo:pipeline_tag": "text-classification",
-    "daimo:task": ["text-classification"],
-    "daimo:subtask": ["sentiment-analysis"],
-    "daimo:algorithm": ["Transformer"],
-    "daimo:license": "Apache-2.0",
-    "daimo:tags": ["demo"],
-    "daimo:library_name": "pytorch",
-    "daimo:library": ["transformers"],
-    "daimo:framework": ["PyTorch"],
-    "daimo:software": ["Python 3.11"],
-    "daimo:format": "safetensors",
-    "daimo:datasets": ["dataset-name"],
-    "daimo:language": ["en"],
-    "daimo:base_model": "org/base-model",
     "daimo:metrics": {
       "accuracy": 0.9
-    }
+    },
+    "assetData": {
+      "JS_DAIMO_Model": {
+        "daimo:taskCategory": "text-classification",
+        "daimo:taskType": "classification",
+        "daimo:subtask": [
+          "sentiment-analysis"
+        ],
+        "daimo:software": [
+          "Python 3.11"
+        ],
+        "daimo:libraryName": "pytorch"
+      }
+    },
+    "dcat:keyword": [
+      "demo"
+    ],
+    "dct:license": "Apache-2.0",
+    "dct:language": [
+      "en"
+    ],
+    "dct:format": "safetensors"
   },
   "dataAddress": {
     "type": "HttpData",

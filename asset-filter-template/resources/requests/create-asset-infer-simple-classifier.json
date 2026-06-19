@@ -1,20 +1,33 @@
 {
   "@context": {
     "@vocab": "https://w3id.org/edc/v0.0.1/ns/",
-    "daimo": "https://pionera.ai/edc/daimo#"
+    "dct": "http://purl.org/dc/terms/",
+    "dcterms": "http://purl.org/dc/terms/",
+    "dcat": "http://www.w3.org/ns/dcat#",
+    "daimo": "https://w3id.org/pionera/daimo#"
   },
   "@id": "provider~simple-text-classifier-v1",
   "properties": {
     "name": "Simple Text Classifier v1",
     "contenttype": "application/json",
-    "daimo:pipeline_tag": "text-classification",
-    "daimo:license": "Apache-2.0",
-    "daimo:tags": ["classification", "inference", "demo", "sentiment"],
-    "daimo:library_name": "custom-python",
-    "daimo:datasets": ["rule-based-demo"],
-    "daimo:language": ["en"],
-    "daimo:base_model": "keyword-rules",
-    "daimo:inference_path": "/infer"
+    "assetData": {
+      "JS_DAIMO_Model": {
+        "daimo:taskCategory": "text-classification",
+        "daimo:taskType": "classification",
+        "daimo:libraryName": "custom-python",
+        "daimo:inferencePath": "/infer"
+      }
+    },
+    "dcat:keyword": [
+      "classification",
+      "inference",
+      "demo",
+      "sentiment"
+    ],
+    "dct:license": "Apache-2.0",
+    "dct:language": [
+      "en"
+    ]
   },
   "dataAddress": {
     "type": "HttpData",

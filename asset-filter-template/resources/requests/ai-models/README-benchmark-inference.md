@@ -13,11 +13,10 @@ Shared schema B (`urn:pionera:schema:tabular-regression:v1`):
 - `provider~benchmark-tabular-linear-v1`
 - `provider~benchmark-tabular-tree-v1`
 
-All assets expose `daimo:inference_path = /infer` and include:
-- `daimo:input_schema_draft`
-- `daimo:input_schema`
-- `daimo:input_features`
-- `daimo:input_example`
+All assets expose `daimo:inferencePath = /infer` and include:
+- `daimo:inputSchemaDraft`
+- `daimo:inputSchema`
+- `daimo:inputExample`
 
 ## 1) Start local inference servers
 

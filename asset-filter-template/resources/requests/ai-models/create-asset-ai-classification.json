@@ -1,7 +1,10 @@
 {
   "@context": {
     "@vocab": "https://w3id.org/edc/v0.0.1/ns/",
-    "daimo": "https://pionera.ai/edc/daimo#"
+    "dct": "http://purl.org/dc/terms/",
+    "dcterms": "http://purl.org/dc/terms/",
+    "dcat": "http://www.w3.org/ns/dcat#",
+    "daimo": "https://w3id.org/pionera/daimo#"
   },
   "@id": "model-iris-multiclass-v1",
   "properties": {
@@ -9,24 +12,35 @@
     "description": "Reference multiclass classifier for structured botanical records.",
     "version": "1.2.0",
     "contenttype": "application/octet-stream",
-    "daimo:pipeline_tag": "text-classification",
-    "daimo:task": ["text-classification", "structured-prediction"],
-    "daimo:subtask": ["multiclass-classification", "species-identification"],
-    "daimo:algorithm": ["Random Forest", "One-vs-Rest"],
-    "daimo:license": "Apache-2.0",
-    "daimo:tags": ["iris", "demo", "multiclass"],
-    "daimo:library_name": "scikit-learn",
-    "daimo:library": ["scikit-learn", "pandas"],
-    "daimo:framework": ["scikit-learn"],
-    "daimo:software": ["Python 3.11", "NumPy 1.26"],
-    "daimo:format": "joblib",
-    "daimo:datasets": ["iris"],
-    "daimo:language": ["en"],
-    "daimo:base_model": "pionera/base-model",
     "daimo:metrics": {
       "accuracy": 0.93,
       "f1_macro": 0.91
-    }
+    },
+    "assetData": {
+      "JS_DAIMO_Model": {
+        "daimo:taskCategory": "text-classification",
+        "daimo:taskType": "classification",
+        "daimo:subtask": [
+          "multiclass-classification",
+          "species-identification"
+        ],
+        "daimo:software": [
+          "Python 3.11",
+          "NumPy 1.26"
+        ],
+        "daimo:libraryName": "scikit-learn"
+      }
+    },
+    "dcat:keyword": [
+      "iris",
+      "demo",
+      "multiclass"
+    ],
+    "dct:license": "Apache-2.0",
+    "dct:language": [
+      "en"
+    ],
+    "dct:format": "joblib"
   },
   "dataAddress": {
     "type": "HttpData",

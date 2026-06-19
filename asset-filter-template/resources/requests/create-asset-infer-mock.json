@@ -1,20 +1,32 @@
 {
   "@context": {
     "@vocab": "https://w3id.org/edc/v0.0.1/ns/",
-    "daimo": "https://pionera.ai/edc/daimo#"
+    "dct": "http://purl.org/dc/terms/",
+    "dcterms": "http://purl.org/dc/terms/",
+    "dcat": "http://www.w3.org/ns/dcat#",
+    "daimo": "https://w3id.org/pionera/daimo#"
   },
   "@id": "model-mock-infer-v1",
   "properties": {
     "name": "Mock Inference Model v1",
     "contenttype": "application/json",
-    "daimo:pipeline_tag": "text-classification",
-    "daimo:license": "Apache-2.0",
-    "daimo:tags": ["mock", "inference", "demo"],
-    "daimo:library_name": "custom",
-    "daimo:datasets": ["mock"],
-    "daimo:language": ["en"],
-    "daimo:base_model": "mock-base",
-    "daimo:inference_path": "/infer"
+    "assetData": {
+      "JS_DAIMO_Model": {
+        "daimo:taskCategory": "text-classification",
+        "daimo:taskType": "classification",
+        "daimo:libraryName": "custom",
+        "daimo:inferencePath": "/infer"
+      }
+    },
+    "dcat:keyword": [
+      "mock",
+      "inference",
+      "demo"
+    ],
+    "dct:license": "Apache-2.0",
+    "dct:language": [
+      "en"
+    ]
   },
   "dataAddress": {
     "type": "HttpData",
