@@ -2,9 +2,11 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { combineLatest, map, Observable, switchMap, take } from 'rxjs';
 import {
+  BenchmarkModelType,
   ExecutableAsset,
-  InputFeatureSpec,
+  InputSchemaFieldSpec,
   MlGuiAsset,
+  ModelRequestShape,
   ModelExecutionRequest,
   ModelExecutionResult,
 } from '../models/ml-gui-asset';
@@ -81,9 +83,8 @@ export class DashboardModelExecutionService {
 
   private hasInferencePathMetadata(asset: MlGuiAsset): boolean {
     const value = this.readAssetValue(asset, [
-      'https://pionera.ai/edc/daimo#inference_path',
-      'daimo:inference_path',
-      'inference_path',
+      'https://w3id.org/pionera/daimo#inferencePath',
+      'daimo:inferencePath',
       'inferencePath',
     ]);
     return typeof value === 'string' && value.trim().length > 0;
@@ -91,7 +92,7 @@ export class DashboardModelExecutionService {
 
   private toExecutableAsset(asset: MlGuiAsset): ExecutableAsset {
     const inputSchema = this.extractInputSchema(asset);
-    const inputFeatures = this.extractInputFeatures(asset, inputSchema);
+    const inputSchemaFields = this.extractInputSchemaFields(asset, inputSchema);
 
     return {
       id: asset.id,
@@ -102,17 +103,19 @@ export class DashboardModelExecutionService {
       tasks: [...(asset.tasks || []), ...(asset.subtasks || [])],
       isLocal: !!asset.isLocal,
       inputSchema,
-      inputFeatures,
+      inputSchemaFields,
       inputSchemaDraft: this.extractSchemaDraft(asset),
       inputExample: this.extractInputExample(asset),
+      requestShape: this.extractRequestShape(asset, inputSchema),
+      benchmarkModelType: this.extractBenchmarkModelType(asset),
+      supportedMetrics: this.extractSupportedMetrics(asset),
     };
   }
 
   private extractInferencePath(asset: MlGuiAsset): string {
     const candidates = [
-      'https://pionera.ai/edc/daimo#inference_path',
-      'daimo:inference_path',
-      'inference_path',
+      'https://w3id.org/pionera/daimo#inferencePath',
+      'daimo:inferencePath',
       'inferencePath',
       'path',
     ];
@@ -142,9 +145,8 @@ export class DashboardModelExecutionService {
 
   private extractInputSchema(asset: MlGuiAsset): Record<string, unknown> | null {
     const value = this.readAssetValue(asset, [
-      'daimo:input_schema',
-      'https://pionera.ai/edc/daimo#input_schema',
-      'input_schema',
+      'daimo:inputSchema',
+      'https://w3id.org/pionera/daimo#inputSchema',
       'inputSchema',
     ]);
 
@@ -152,34 +154,19 @@ export class DashboardModelExecutionService {
     return this.isRecord(parsed) ? parsed : null;
   }
 
-  private extractInputFeatures(
+  private extractInputSchemaFields(
     asset: MlGuiAsset,
     inputSchema: Record<string, unknown> | null,
-  ): InputFeatureSpec[] {
-    const direct = this.readAssetValue(asset, [
-      'daimo:input_features',
-      'https://pionera.ai/edc/daimo#input_features',
-      'input_features',
-      'inputFeatures',
-    ]);
-
-    const parsedDirect = this.parseInputFeatures(direct);
-    if (parsedDirect.length > 0) {
-      return parsedDirect;
-    }
-
+  ): InputSchemaFieldSpec[] {
     if (!inputSchema) {
       return [];
     }
 
-    return this.buildInputFeaturesFromSchema(inputSchema);
+    return this.buildInputSchemaFieldsFromSchema(inputSchema);
   }
 
   private extractSchemaDraft(asset: MlGuiAsset): string {
     const value = this.readAssetValue(asset, [
-      'daimo:input_schema_draft',
-      'https://pionera.ai/edc/daimo#input_schema_draft',
-      'input_schema_draft',
       'inputSchemaDraft',
     ]);
     return typeof value === 'string' ? value.trim() : '';
@@ -187,19 +174,109 @@ export class DashboardModelExecutionService {
 
   private extractInputExample(asset: MlGuiAsset): unknown {
     const value = this.readAssetValue(asset, [
-      'daimo:input_example',
-      'https://pionera.ai/edc/daimo#input_example',
-      'input_example',
+      'daimo:inputExample',
+      'https://w3id.org/pionera/daimo#inputExample',
       'inputExample',
     ]);
     return this.parseJsonLikeValue(value);
   }
 
+  private extractRequestShape(
+    asset: MlGuiAsset,
+    inputSchema: Record<string, unknown> | null,
+  ): ModelRequestShape {
+    const value = this.readAssetValue(asset, [
+      'daimo:requestShape',
+      'https://w3id.org/pionera/daimo#requestShape',
+      'requestShape',
+    ]);
+    const parsed = this.parseJsonLikeValue(value);
+
+    if (typeof parsed === 'boolean') {
+      return parsed ? 'batch' : 'single';
+    }
+
+    if (typeof parsed === 'string') {
+      const normalized = parsed.trim().toLowerCase();
+      if (['batch', 'array', 'list', 'records', 'rows'].includes(normalized)) {
+        return 'batch';
+      }
+      if (['single', 'object', 'record', 'row'].includes(normalized)) {
+        return 'single';
+      }
+    }
+
+    return inputSchema && this.isArraySchema(inputSchema) ? 'batch' : 'single';
+  }
+
+  private extractBenchmarkModelType(asset: MlGuiAsset): BenchmarkModelType {
+    const value = this.readAssetValue(asset, [
+      'daimo:endpointBehavior',
+      'https://w3id.org/pionera/daimo#endpointBehavior',
+      'endpointBehavior',
+    ]);
+    const normalized = String(this.parseJsonLikeValue(value) || '').trim().toLowerCase().replace(/[\s_-]/g, '');
+    return ['metric', 'metrics', 'evaluator', 'evaluation'].includes(normalized) ? 'metric' : 'output';
+  }
+
+  private extractSupportedMetrics(asset: MlGuiAsset): string[] {
+    const value = this.readAssetValue(asset, [
+      'daimo:metrics',
+      'https://w3id.org/pionera/daimo#metrics',
+      'metrics',
+    ]);
+    return this.collectMetricNames(this.parseJsonLikeValue(value));
+  }
+
+  private collectMetricNames(value: unknown): string[] {
+    if (value === undefined || value === null) {
+      return [];
+    }
+
+    if (typeof value === 'string') {
+      return this.uniqueTextValues(value.split(','));
+    }
+
+    if (Array.isArray(value)) {
+      return this.uniqueTextValues(value.flatMap(item => this.collectMetricNames(item)));
+    }
+
+    if (!this.isRecord(value)) {
+      return [];
+    }
+
+    const directName = value['metric'] || value['name'] || value['key'] || value['id'];
+    if (typeof directName === 'string' && directName.trim().length > 0) {
+      return [directName.trim()];
+    }
+
+    return this.uniqueTextValues(
+      Object.entries(value).flatMap(([key, nested]) => {
+        if (typeof nested === 'number' || typeof nested === 'boolean' || typeof nested === 'string') {
+          return [key];
+        }
+        return this.collectMetricNames(nested);
+      }),
+    );
+  }
+
+  private uniqueTextValues(values: string[]): string[] {
+    return Array.from(new Set(values.map(value => value.trim()).filter(value => value.length > 0)));
+  }
+
   private readAssetValue(asset: MlGuiAsset, keys: string[]): unknown {
     const directRecord = asset.rawProperties || {};
     const nestedRecord = (asset.rawProperties?.['properties'] as Record<string, unknown>) || {};
+    const directDaimoRecord = this.extractDaimoMetadata(directRecord);
+    const nestedDaimoRecord = this.extractDaimoMetadata(nestedRecord);
 
     for (const key of keys) {
+      if (key in directDaimoRecord) {
+        return directDaimoRecord[key];
+      }
+      if (key in nestedDaimoRecord) {
+        return nestedDaimoRecord[key];
+      }
       if (key in directRecord) {
         return directRecord[key];
       }
@@ -209,6 +286,15 @@ export class DashboardModelExecutionService {
     }
 
     return undefined;
+  }
+
+  private extractDaimoMetadata(source: Record<string, unknown>): Record<string, unknown> {
+    const assetData = this.asRecord(
+      source['assetData']
+      || source['edc:assetData']
+      || source['https://w3id.org/edc/v0.0.1/ns/assetData'],
+    );
+    return this.asRecord(assetData['JS_DAIMO_Model'] || assetData['JS_DAIMO_Dataset']);
   }
 
   private parseJsonLikeValue(value: unknown): unknown {
@@ -235,55 +321,29 @@ export class DashboardModelExecutionService {
     return value;
   }
 
-  private parseInputFeatures(value: unknown): InputFeatureSpec[] {
-    const parsed = this.parseJsonLikeValue(value);
-    if (!Array.isArray(parsed)) {
-      return [];
+  private buildInputSchemaFieldsFromSchema(schema: Record<string, unknown>): InputSchemaFieldSpec[] {
+    const features: InputSchemaFieldSpec[] = [];
+    if (this.isArraySchema(schema) && this.isRecord(schema['items'])) {
+      this.collectInputSchemaFields(schema['items'], '', new Set<string>(), features);
+    } else {
+      this.collectInputSchemaFields(schema, '', new Set<string>(), features);
     }
-
-    const features: InputFeatureSpec[] = [];
-    for (const item of parsed) {
-      if (typeof item === 'string' && item.trim().length > 0) {
-        features.push({ name: item.trim(), type: 'any', required: false });
-        continue;
-      }
-
-      if (!this.isRecord(item)) {
-        continue;
-      }
-
-      const nameRaw = item['name'] ?? item['field'] ?? item['path'];
-      const typeRaw = item['type'] ?? item['dataType'] ?? item['dtype'];
-      const requiredRaw = item['required'];
-      const descriptionRaw = item['description'];
-
-      if (typeof nameRaw !== 'string' || nameRaw.trim().length === 0) {
-        continue;
-      }
-
-      features.push({
-        name: nameRaw.trim(),
-        type: typeof typeRaw === 'string' && typeRaw.trim().length > 0 ? typeRaw.trim().toLowerCase() : 'any',
-        required: requiredRaw === true,
-        description:
-          typeof descriptionRaw === 'string' && descriptionRaw.trim().length > 0 ? descriptionRaw.trim() : undefined,
-      });
-    }
-
     return features;
   }
 
-  private buildInputFeaturesFromSchema(schema: Record<string, unknown>): InputFeatureSpec[] {
-    const features: InputFeatureSpec[] = [];
-    this.collectSchemaFeatures(schema, '', new Set<string>(), features);
-    return features;
+  private isArraySchema(schema: Record<string, unknown>): boolean {
+    const typeNode = schema['type'];
+    if (typeof typeNode === 'string') {
+      return typeNode.trim().toLowerCase() === 'array';
+    }
+    return Array.isArray(typeNode) && typeNode.some(item => typeof item === 'string' && item.trim().toLowerCase() === 'array');
   }
 
-  private collectSchemaFeatures(
+  private collectInputSchemaFields(
     schemaNode: Record<string, unknown>,
     prefix: string,
     requiredByParent: Set<string>,
-    target: InputFeatureSpec[],
+    target: InputSchemaFieldSpec[],
   ): void {
     const propertiesNode = schemaNode['properties'];
     if (!this.isRecord(propertiesNode)) {
@@ -309,13 +369,13 @@ export class DashboardModelExecutionService {
       });
 
       if (inferredType === 'object' && this.isRecord(schemaRecord['properties'])) {
-        this.collectSchemaFeatures(schemaRecord, path, new Set<string>(), target);
+        this.collectInputSchemaFields(schemaRecord, path, new Set<string>(), target);
       }
 
       if (inferredType === 'array' && this.isRecord(schemaRecord['items'])) {
         const itemSchema = schemaRecord['items'] as Record<string, unknown>;
         if (this.isRecord(itemSchema['properties'])) {
-          this.collectSchemaFeatures(itemSchema, `${path}[]`, new Set<string>(), target);
+          this.collectInputSchemaFields(itemSchema, `${path}[]`, new Set<string>(), target);
         }
       }
     });
@@ -357,5 +417,9 @@ export class DashboardModelExecutionService {
 
   private isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> {
+    return this.isRecord(value) ? value : {};
   }
 }

@@ -25,7 +25,7 @@ export class ModelObserverComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private currentConnectorName = '';
 
-  readonly views: Array<{ value: ObserverView; label: string }> = [
+  readonly views: { value: ObserverView; label: string }[] = [
     { value: 'ledger', label: 'Ledger' },
     { value: 'asset', label: 'Asset Timeline' },
     { value: 'agreement', label: 'Agreement Evidence' },

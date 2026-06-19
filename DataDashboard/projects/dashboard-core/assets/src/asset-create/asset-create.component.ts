@@ -55,44 +55,39 @@ interface SchemaTemplatePreset {
 }
 
 const DAIMO_METADATA_KEYS = {
-  shortDescription: ['daimo:short_description', 'https://pionera.ai/edc/daimo#short_description'],
-  version: ['daimo:model_version', 'https://pionera.ai/edc/daimo#model_version'],
-  assetKind: ['daimo:asset_kind', 'https://pionera.ai/edc/daimo#asset_kind', 'asset:prop:kind'],
-  task: ['daimo:pipeline_tag', 'https://pionera.ai/edc/daimo#pipeline_tag'],
-  modality: ['daimo:modality', 'https://pionera.ai/edc/daimo#modality'],
-  keywords: ['daimo:tags', 'https://pionera.ai/edc/daimo#tags'],
-  license: ['daimo:license', 'https://pionera.ai/edc/daimo#license'],
-  maturityStatus: ['daimo:maturity_status', 'https://pionera.ai/edc/daimo#maturity_status'],
-  runtime: ['daimo:library_name', 'https://pionera.ai/edc/daimo#library_name'],
-  languages: ['daimo:language', 'https://pionera.ai/edc/daimo#language'],
-  architecture: ['daimo:architecture_family', 'https://pionera.ai/edc/daimo#architecture_family'],
-  baseModel: ['daimo:base_model', 'https://pionera.ai/edc/daimo#base_model'],
-  format: ['daimo:format', 'https://pionera.ai/edc/daimo#format'],
-  inferencePath: ['daimo:inference_path', 'https://pionera.ai/edc/daimo#inference_path'],
-  inputSchemaDraft: ['daimo:input_schema_draft', 'https://pionera.ai/edc/daimo#input_schema_draft'],
-  inputSchema: ['daimo:input_schema', 'https://pionera.ai/edc/daimo#input_schema'],
-  inputFeatures: ['daimo:input_features', 'https://pionera.ai/edc/daimo#input_features'],
-  inputExample: ['daimo:input_example', 'https://pionera.ai/edc/daimo#input_example'],
-  parameterCount: ['daimo:parameter_count', 'https://pionera.ai/edc/daimo#parameter_count'],
-  artifactSize: ['daimo:artifact_size_mb', 'https://pionera.ai/edc/daimo#artifact_size_mb'],
-  quantization: ['daimo:quantization', 'https://pionera.ai/edc/daimo#quantization'],
-  performanceMetric: ['daimo:performance_metric', 'https://pionera.ai/edc/daimo#performance_metric'],
-  performanceDataset: [
-    'daimo:performance_dataset',
-    'https://pionera.ai/edc/daimo#performance_dataset',
-    'daimo:datasets',
-    'https://pionera.ai/edc/daimo#datasets',
-  ],
-  performanceReport: ['daimo:performance_report', 'https://pionera.ai/edc/daimo#performance_report'],
-  intendedUse: ['daimo:intended_use', 'https://pionera.ai/edc/daimo#intended_use'],
-  limitations: ['daimo:limitations', 'https://pionera.ai/edc/daimo#limitations'],
-  piiSafe: ['daimo:pii_safe', 'https://pionera.ai/edc/daimo#pii_safe'],
-  regulatedDomain: ['daimo:regulated_domain', 'https://pionera.ai/edc/daimo#regulated_domain'],
-  humanInLoop: ['daimo:human_in_the_loop_required', 'https://pionera.ai/edc/daimo#human_in_the_loop_required'],
-  latencyP95: ['daimo:latency_p95_ms', 'https://pionera.ai/edc/daimo#latency_p95_ms'],
-  throughput: ['daimo:throughput_rps', 'https://pionera.ai/edc/daimo#throughput_rps'],
-  rateLimits: ['daimo:rate_limits', 'https://pionera.ai/edc/daimo#rate_limits'],
-  availabilityTier: ['daimo:availability_tier', 'https://pionera.ai/edc/daimo#availability_tier'],
+  shortDescription: ['shortDescription'],
+  version: ['daimo:modelVersion', 'https://w3id.org/pionera/daimo#modelVersion'],
+  assetKind: ['daimo:assetKind', 'https://w3id.org/pionera/daimo#assetKind', 'asset:prop:kind'],
+  task: ['daimo:taskCategory', 'https://w3id.org/pionera/daimo#taskCategory'],
+  taskType: ['daimo:taskType', 'https://w3id.org/pionera/daimo#taskType', 'taskType'],
+  modality: ['daimo:modality', 'https://w3id.org/pionera/daimo#modality'],
+  subtask: ['daimo:subtask', 'https://w3id.org/pionera/daimo#subtask', 'subtask'],
+  endpointBehavior: ['daimo:endpointBehavior', 'https://w3id.org/pionera/daimo#endpointBehavior', 'endpointBehavior'],
+  requestShape: ['daimo:requestShape', 'https://w3id.org/pionera/daimo#requestShape', 'requestShape'],
+  keywords: ['dcat:keyword', 'keywords'],
+  license: ['dct:license', 'http://purl.org/dc/terms/license'],
+  maturityStatus: ['daimo:maturityStatus', 'https://w3id.org/pionera/daimo#maturityStatus'],
+  runtime: ['daimo:libraryName', 'https://w3id.org/pionera/daimo#libraryName'],
+  languages: ['dct:language', 'http://purl.org/dc/terms/language'],
+  format: ['dct:format', 'http://purl.org/dc/terms/format'],
+  inferencePath: ['daimo:inferencePath', 'https://w3id.org/pionera/daimo#inferencePath'],
+  inputSchemaDraft: ['daimo:inputSchemaDraft', 'https://w3id.org/pionera/daimo#inputSchemaDraft'],
+  inputSchema: ['daimo:inputSchema', 'https://w3id.org/pionera/daimo#inputSchema'],
+  inputExample: ['daimo:inputExample', 'https://w3id.org/pionera/daimo#inputExample'],
+  parameterCount: ['daimo:parameterCount', 'https://w3id.org/pionera/daimo#parameterCount'],
+  artifactSize: ['daimo:artifactSizeMb', 'https://w3id.org/pionera/daimo#artifactSizeMb'],
+  quantization: ['daimo:quantization', 'https://w3id.org/pionera/daimo#quantization'],
+  metrics: ['daimo:metrics', 'https://w3id.org/pionera/daimo#metrics'],
+  performanceReport: ['daimo:performanceReport', 'https://w3id.org/pionera/daimo#performanceReport'],
+  intendedUse: ['daimo:intendedUse', 'https://w3id.org/pionera/daimo#intendedUse'],
+  limitations: ['daimo:limitations', 'https://w3id.org/pionera/daimo#limitations'],
+  piiSafe: ['daimo:piiSafe', 'https://w3id.org/pionera/daimo#piiSafe'],
+  regulatedDomain: ['daimo:regulatedDomain', 'https://w3id.org/pionera/daimo#regulatedDomain'],
+  humanInLoop: ['daimo:humanInTheLoopRequired', 'https://w3id.org/pionera/daimo#humanInTheLoopRequired'],
+  latencyP95: ['daimo:latencyP95Ms', 'https://w3id.org/pionera/daimo#latencyP95Ms'],
+  throughput: ['daimo:throughputRps', 'https://w3id.org/pionera/daimo#throughputRps'],
+  rateLimits: ['daimo:rateLimits', 'https://w3id.org/pionera/daimo#rateLimits'],
+  availabilityTier: ['daimo:availabilityTier', 'https://w3id.org/pionera/daimo#availabilityTier'],
 } as const;
 
 const DEFAULT_ML_TASK_OPTIONS = [
@@ -125,6 +120,35 @@ const DEFAULT_ML_TASK_OPTIONS = [
 ];
 
 const DEFAULT_ML_MODALITY_OPTIONS = ['tabular', 'text', 'image', 'audio', 'video', 'multimodal'];
+
+const DEFAULT_ML_TASK_TYPE_OPTIONS = [
+  'classification',
+  'regression',
+  'embedding',
+  'generation',
+  'retrieval',
+  'ranking',
+  'forecasting',
+  'detection',
+  'segmentation',
+  'transcription',
+  'synthesis',
+  'evaluation',
+];
+
+const DEFAULT_ML_SUBTASK_OPTIONS = [
+  'sentiment-analysis',
+  'topic-classification',
+  'named-entity-recognition',
+  'semantic-search',
+  'text-embedding',
+  'tabular-classification',
+  'tabular-regression',
+  'metric-evaluation',
+];
+
+const DEFAULT_ML_ENDPOINT_BEHAVIOR_OPTIONS = ['inference', 'metric', 'evaluator'];
+const DEFAULT_ML_REQUEST_SHAPE_OPTIONS = ['single', 'batch'];
 
 const DEFAULT_ML_KEYWORD_OPTIONS = [
   'classification',
@@ -175,17 +199,6 @@ const DEFAULT_ML_INFERENCE_PATH_OPTIONS = ['/infer', '/predict', '/score', '/cla
 const DEFAULT_ML_SCHEMA_DRAFT_OPTIONS = ['2020-12', '2019-09', 'draft-07'];
 const DEFAULT_SCHEMA_FIELD_TYPES = ['string', 'number', 'integer', 'boolean', 'object', 'array', 'enum', 'any'];
 const DEFAULT_ML_QUANTIZATION_OPTIONS = ['none', 'fp16', 'int8', 'int4', 'gptq', 'awq'];
-
-const DEFAULT_ML_DATASET_OPTIONS = [
-  'iris',
-  'housing',
-  'mteb',
-  'squad',
-  'imagenet',
-  'coco',
-  'librispeech',
-  'custom',
-];
 
 const DEFAULT_ML_METRIC_OPTIONS = [
   'accuracy',
@@ -336,7 +349,11 @@ export class AssetCreateComponent implements OnChanges {
   dataAddress?: DataAddress;
 
   mlTaskOptions = [...DEFAULT_ML_TASK_OPTIONS];
+  mlTaskTypeOptions = [...DEFAULT_ML_TASK_TYPE_OPTIONS];
   mlModalityOptions = [...DEFAULT_ML_MODALITY_OPTIONS];
+  mlSubtaskOptions = [...DEFAULT_ML_SUBTASK_OPTIONS];
+  mlEndpointBehaviorOptions = [...DEFAULT_ML_ENDPOINT_BEHAVIOR_OPTIONS];
+  mlRequestShapeOptions = [...DEFAULT_ML_REQUEST_SHAPE_OPTIONS];
   mlKeywordOptions = [...DEFAULT_ML_KEYWORD_OPTIONS];
   mlRuntimeOptions = [...DEFAULT_ML_RUNTIME_OPTIONS];
   mlLanguageOptions = [...DEFAULT_ML_LANGUAGE_OPTIONS];
@@ -348,7 +365,6 @@ export class AssetCreateComponent implements OnChanges {
   schemaFieldTypeOptions = [...DEFAULT_SCHEMA_FIELD_TYPES];
   schemaTemplatePresets = [...SCHEMA_TEMPLATE_PRESETS];
   mlQuantizationOptions = [...DEFAULT_ML_QUANTIZATION_OPTIONS];
-  mlDatasetOptions = [...DEFAULT_ML_DATASET_OPTIONS];
   mlMetricOptions = [...DEFAULT_ML_METRIC_OPTIONS];
   mlAvailabilityOptions = [...DEFAULT_ML_AVAILABILITY_OPTIONS];
   mlAssetKindOptions = [...DEFAULT_ML_ASSET_KIND_OPTIONS];
@@ -369,14 +385,16 @@ export class AssetCreateComponent implements OnChanges {
       mlVersion: [''],
       mlAssetKind: ['model'],
       mlTask: [''],
+      mlTaskType: [''],
       mlModality: [[]],
+      mlSubtask: [''],
+      mlEndpointBehavior: [''],
+      mlRequestShape: [''],
       mlKeywords: [[]],
       mlLicense: [''],
       mlMaturity: [''],
       mlRuntime: [[]],
       mlLanguages: [[]],
-      mlArchitecture: [''],
-      mlBaseModel: [''],
       mlFormat: [''],
       mlInferencePath: [''],
       mlInputSchemaDraft: [''],
@@ -386,7 +404,6 @@ export class AssetCreateComponent implements OnChanges {
       mlArtifactSize: [''],
       mlQuantization: [''],
       mlPerformanceMetric: [''],
-      mlPerformanceDataset: [''],
       mlPerformanceReport: [''],
       mlIntendedUse: [''],
       mlLimitations: [''],
@@ -542,20 +559,20 @@ export class AssetCreateComponent implements OnChanges {
 
     try {
       const schema = this.parseJsonObject(schemaText, 'Input schema');
-      const features = this.extractInputFeaturesFromSchema(schema);
+      const schemaFields = this.extractInputSchemaFieldsFromSchema(schema);
       const parsedExample = this.tryParseJsonText(this.asTrimmedString(this.assetForm.get('mlInputExample')?.value));
 
-      this.schemaBuilderFields = features.map(feature => ({
+      this.schemaBuilderFields = schemaFields.map(schemaField => ({
         id: this.schemaBuilderNextId++,
-        path: this.toStringValue(feature['name']),
-        type: this.normalizeSchemaFieldType(this.toStringValue(feature['type']) || 'string'),
-        required: feature['required'] === true,
-        description: this.toStringValue(feature['description']),
-        example: this.stringifyExampleValue(this.getValueAtSchemaPath(parsedExample, this.toStringValue(feature['name']))),
+        path: this.toStringValue(schemaField['name']),
+        type: this.normalizeSchemaFieldType(this.toStringValue(schemaField['type']) || 'string'),
+        required: schemaField['required'] === true,
+        description: this.toStringValue(schemaField['description']),
+        example: this.stringifyExampleValue(this.getValueAtSchemaPath(parsedExample, this.toStringValue(schemaField['name']))),
       }));
 
       if (this.schemaBuilderFields.length === 0) {
-        this.schemaBuilderMessage = 'Schema loaded, but no feature fields were found.';
+        this.schemaBuilderMessage = 'Schema loaded, but no input fields were found.';
       } else {
         this.schemaBuilderMessage = `Loaded ${this.schemaBuilderFields.length} input field(s) from JSON schema.`;
       }
@@ -574,14 +591,16 @@ export class AssetCreateComponent implements OnChanges {
     const version = this.readFirstString(DAIMO_METADATA_KEYS.version);
     const assetKind = this.readFirstString(DAIMO_METADATA_KEYS.assetKind) || 'model';
     const task = this.readFirstString(DAIMO_METADATA_KEYS.task);
+    const taskType = this.readFirstString(DAIMO_METADATA_KEYS.taskType);
     const modalities = this.readStringList(DAIMO_METADATA_KEYS.modality);
+    const subtask = this.readFirstString(DAIMO_METADATA_KEYS.subtask);
+    const endpointBehavior = this.readFirstString(DAIMO_METADATA_KEYS.endpointBehavior);
+    const requestShape = this.readFirstString(DAIMO_METADATA_KEYS.requestShape);
     const keywords = this.readStringList(DAIMO_METADATA_KEYS.keywords);
     const license = this.readFirstString(DAIMO_METADATA_KEYS.license);
     const maturity = this.readFirstString(DAIMO_METADATA_KEYS.maturityStatus);
     const runtime = this.readStringList(DAIMO_METADATA_KEYS.runtime);
     const languages = this.readStringList(DAIMO_METADATA_KEYS.languages);
-    const architecture = this.readFirstString(DAIMO_METADATA_KEYS.architecture);
-    const baseModel = this.readFirstString(DAIMO_METADATA_KEYS.baseModel);
     const format = this.readFirstString(DAIMO_METADATA_KEYS.format);
     const inferencePath = this.readFirstString(DAIMO_METADATA_KEYS.inferencePath);
     const inputSchemaDraft = this.readFirstString(DAIMO_METADATA_KEYS.inputSchemaDraft);
@@ -590,8 +609,7 @@ export class AssetCreateComponent implements OnChanges {
     const parameterCount = this.readFirstString(DAIMO_METADATA_KEYS.parameterCount);
     const artifactSize = this.readFirstString(DAIMO_METADATA_KEYS.artifactSize);
     const quantization = this.readFirstString(DAIMO_METADATA_KEYS.quantization);
-    const performanceMetric = this.readFirstString(DAIMO_METADATA_KEYS.performanceMetric);
-    const performanceDataset = this.readFirstString(DAIMO_METADATA_KEYS.performanceDataset);
+    const performanceMetric = this.readFirstString(DAIMO_METADATA_KEYS.metrics);
     const performanceReport = this.readFirstString(DAIMO_METADATA_KEYS.performanceReport);
     const intendedUse = this.readFirstString(DAIMO_METADATA_KEYS.intendedUse);
     const limitations = this.readFirstString(DAIMO_METADATA_KEYS.limitations);
@@ -609,10 +627,12 @@ export class AssetCreateComponent implements OnChanges {
         version,
         assetKind,
         task,
+        taskType,
+        subtask,
+        endpointBehavior,
+        requestShape,
         license,
         maturity,
-        architecture,
-        baseModel,
         format,
         inferencePath,
         inputSchemaDraft,
@@ -622,7 +642,6 @@ export class AssetCreateComponent implements OnChanges {
         artifactSize,
         quantization,
         performanceMetric,
-        performanceDataset,
         performanceReport,
         intendedUse,
         limitations,
@@ -640,6 +659,10 @@ export class AssetCreateComponent implements OnChanges {
       humanInLoop;
 
     this.ensureOption(this.mlTaskOptions, task);
+    this.ensureOption(this.mlTaskTypeOptions, taskType);
+    this.ensureOption(this.mlSubtaskOptions, subtask);
+    this.ensureOption(this.mlEndpointBehaviorOptions, endpointBehavior);
+    this.ensureOption(this.mlRequestShapeOptions, requestShape);
     this.ensureOption(this.mlLicenseOptions, license);
     this.ensureOption(this.mlMaturityOptions, maturity);
     this.ensureOption(this.mlFormatOptions, format);
@@ -647,7 +670,6 @@ export class AssetCreateComponent implements OnChanges {
     this.ensureOption(this.mlSchemaDraftOptions, inputSchemaDraft);
     this.ensureOption(this.mlQuantizationOptions, quantization);
     this.ensureOption(this.mlMetricOptions, performanceMetric);
-    this.ensureOption(this.mlDatasetOptions, performanceDataset);
     this.ensureOption(this.mlAvailabilityOptions, availabilityTier);
 
     this.ensureOptions(this.mlModalityOptions, modalities);
@@ -664,14 +686,16 @@ export class AssetCreateComponent implements OnChanges {
       mlVersion: version,
       mlAssetKind: assetKind,
       mlTask: task,
+      mlTaskType: taskType,
       mlModality: modalities,
+      mlSubtask: subtask,
+      mlEndpointBehavior: endpointBehavior,
+      mlRequestShape: requestShape,
       mlKeywords: keywords,
       mlLicense: license,
       mlMaturity: maturity,
       mlRuntime: runtime,
       mlLanguages: languages,
-      mlArchitecture: architecture,
-      mlBaseModel: baseModel,
       mlFormat: format,
       mlInferencePath: inferencePath,
       mlInputSchemaDraft: inputSchemaDraft,
@@ -681,7 +705,6 @@ export class AssetCreateComponent implements OnChanges {
       mlArtifactSize: artifactSize,
       mlQuantization: quantization,
       mlPerformanceMetric: performanceMetric,
-      mlPerformanceDataset: performanceDataset,
       mlPerformanceReport: performanceReport,
       mlIntendedUse: intendedUse,
       mlLimitations: limitations,
@@ -765,14 +788,16 @@ export class AssetCreateComponent implements OnChanges {
     const version = this.asTrimmedString(this.assetForm.value.mlVersion);
     const assetKind = this.asTrimmedString(this.assetForm.value.mlAssetKind).toLowerCase() === 'dataset' ? 'dataset' : 'model';
     const task = this.asTrimmedString(this.assetForm.value.mlTask);
+    const taskType = this.asTrimmedString(this.assetForm.value.mlTaskType);
     const modalities = this.asStringArray(this.assetForm.value.mlModality);
+    const subtask = this.asTrimmedString(this.assetForm.value.mlSubtask);
+    const endpointBehavior = this.asTrimmedString(this.assetForm.value.mlEndpointBehavior);
+    const requestShape = this.asTrimmedString(this.assetForm.value.mlRequestShape);
     const keywords = this.asStringArray(this.assetForm.value.mlKeywords);
     const license = this.asTrimmedString(this.assetForm.value.mlLicense);
     const maturity = this.asTrimmedString(this.assetForm.value.mlMaturity);
     const runtime = this.asStringArray(this.assetForm.value.mlRuntime);
     const languages = this.asStringArray(this.assetForm.value.mlLanguages);
-    const architecture = this.asTrimmedString(this.assetForm.value.mlArchitecture);
-    const baseModel = this.asTrimmedString(this.assetForm.value.mlBaseModel);
     const format = this.asTrimmedString(this.assetForm.value.mlFormat);
     const inferencePath = this.asTrimmedString(this.assetForm.value.mlInferencePath);
     const inputSchemaDraft = this.asTrimmedString(this.assetForm.value.mlInputSchemaDraft);
@@ -786,7 +811,6 @@ export class AssetCreateComponent implements OnChanges {
     const artifactSize = this.asTrimmedString(this.assetForm.value.mlArtifactSize);
     const quantization = this.asTrimmedString(this.assetForm.value.mlQuantization);
     const performanceMetric = this.asTrimmedString(this.assetForm.value.mlPerformanceMetric);
-    const performanceDataset = this.asTrimmedString(this.assetForm.value.mlPerformanceDataset);
     const performanceReport = this.asTrimmedString(this.assetForm.value.mlPerformanceReport);
     const intendedUse = this.asTrimmedString(this.assetForm.value.mlIntendedUse);
     const limitations = this.asTrimmedString(this.assetForm.value.mlLimitations);
@@ -794,114 +818,122 @@ export class AssetCreateComponent implements OnChanges {
     const throughput = this.asTrimmedString(this.assetForm.value.mlThroughput);
     const rateLimits = this.asTrimmedString(this.assetForm.value.mlRateLimits);
     const availabilityTier = this.asTrimmedString(this.assetForm.value.mlAvailabilityTier);
+    const assetData = (properties['assetData'] && typeof properties['assetData'] === 'object'
+      ? properties['assetData']
+      : {}) as Record<string, JsonValue>;
+    const metadataNodeName = assetKind === 'dataset' ? 'JS_DAIMO_Dataset' : 'JS_DAIMO_Model';
+    const mlMetadata = (assetData[metadataNodeName] && typeof assetData[metadataNodeName] === 'object'
+      ? assetData[metadataNodeName]
+      : {}) as Record<string, JsonValue>;
+    assetData[metadataNodeName] = mlMetadata as JsonValue;
+    properties['assetData'] = assetData as JsonValue;
 
     if (shortDescription) {
-      properties['daimo:short_description'] = shortDescription;
+      properties['shortDescription'] = shortDescription;
     }
     if (version) {
-      properties['daimo:model_version'] = version;
+      properties['version'] = version;
+      mlMetadata['daimo:modelVersion'] = version;
     }
-    properties['daimo:asset_kind'] = assetKind;
+    mlMetadata['daimo:assetKind'] = assetKind;
     properties['asset:prop:kind'] = assetKind;
     if (task) {
-      properties['daimo:pipeline_tag'] = task;
+      mlMetadata['daimo:taskCategory'] = task;
+    }
+    if (taskType) {
+      mlMetadata['daimo:taskType'] = taskType;
     }
     if (modalities.length > 0) {
-      properties['daimo:modality'] = modalities;
+      mlMetadata['daimo:modality'] = modalities;
+    }
+    if (subtask) {
+      mlMetadata['daimo:subtask'] = subtask;
+    }
+    if (endpointBehavior) {
+      mlMetadata['daimo:endpointBehavior'] = endpointBehavior;
+    }
+    if (requestShape) {
+      mlMetadata['daimo:requestShape'] = requestShape;
     }
     if (keywords.length > 0) {
-      properties['daimo:tags'] = keywords;
+      properties['dcat:keyword'] = keywords;
     }
     if (license) {
-      properties['daimo:license'] = license;
+      properties['dct:license'] = license;
     }
     if (maturity) {
-      properties['daimo:maturity_status'] = maturity;
+      mlMetadata['daimo:maturityStatus'] = maturity;
     }
     if (runtime.length > 0) {
-      properties['daimo:library_name'] = runtime;
+      mlMetadata['daimo:libraryName'] = runtime;
     }
     if (languages.length > 0) {
-      properties['daimo:language'] = languages;
-    }
-    if (architecture) {
-      properties['daimo:architecture_family'] = architecture;
-    }
-    if (baseModel) {
-      properties['daimo:base_model'] = baseModel;
+      properties['dct:language'] = languages;
     }
     if (format) {
-      properties['daimo:format'] = format;
+      properties['dct:format'] = format;
     }
     if (inferencePath) {
-      properties['daimo:inference_path'] = inferencePath;
+      mlMetadata['daimo:inferencePath'] = inferencePath;
     }
     if (inputSchemaDraft) {
-      properties['daimo:input_schema_draft'] = inputSchemaDraft;
+      mlMetadata['daimo:inputSchemaDraft'] = inputSchemaDraft;
     }
     if (inputSchemaText) {
       const parsedSchema = this.parseJsonObject(inputSchemaText, 'Input schema');
-      properties['daimo:input_schema'] = parsedSchema as JsonValue;
+      mlMetadata['daimo:inputSchema'] = parsedSchema as JsonValue;
 
       const schemaDraft = this.extractSchemaDraft(parsedSchema);
       if (!inputSchemaDraft && schemaDraft) {
-        properties['daimo:input_schema_draft'] = schemaDraft;
+        mlMetadata['daimo:inputSchemaDraft'] = schemaDraft;
       }
 
-      const inputFeatures = this.extractInputFeaturesFromSchema(parsedSchema);
-      if (inputFeatures.length > 0) {
-        properties['daimo:input_features'] = inputFeatures as JsonValue;
-      }
     }
     if (inputExampleText) {
       const parsedExample = this.parseJsonValue(inputExampleText, 'Input example');
-      properties['daimo:input_example'] = parsedExample as JsonValue;
+      mlMetadata['daimo:inputExample'] = parsedExample as JsonValue;
     }
     if (parameterCount) {
-      properties['daimo:parameter_count'] = parameterCount;
+      mlMetadata['daimo:parameterCount'] = parameterCount;
     }
     if (artifactSize) {
-      properties['daimo:artifact_size_mb'] = artifactSize;
+      mlMetadata['daimo:artifactSizeMb'] = artifactSize;
     }
     if (quantization) {
-      properties['daimo:quantization'] = quantization;
+      mlMetadata['daimo:quantization'] = quantization;
     }
     if (performanceMetric) {
-      properties['daimo:performance_metric'] = performanceMetric;
-    }
-    if (performanceDataset) {
-      properties['daimo:performance_dataset'] = performanceDataset;
-      properties['daimo:datasets'] = [performanceDataset];
+      mlMetadata['daimo:metrics'] = [performanceMetric];
     }
     if (performanceReport) {
-      properties['daimo:performance_report'] = performanceReport;
+      mlMetadata['daimo:performanceReport'] = performanceReport;
     }
     if (intendedUse) {
-      properties['daimo:intended_use'] = intendedUse;
+      mlMetadata['daimo:intendedUse'] = intendedUse;
     }
     if (limitations) {
-      properties['daimo:limitations'] = limitations;
+      mlMetadata['daimo:limitations'] = limitations;
     }
     if (this.assetForm.value.mlPiiSafe) {
-      properties['daimo:pii_safe'] = true;
+      mlMetadata['daimo:piiSafe'] = true;
     }
     if (this.assetForm.value.mlRegulatedDomain) {
-      properties['daimo:regulated_domain'] = true;
+      mlMetadata['daimo:regulatedDomain'] = true;
     }
     if (this.assetForm.value.mlHumanInLoop) {
-      properties['daimo:human_in_the_loop_required'] = true;
+      mlMetadata['daimo:humanInTheLoopRequired'] = true;
     }
     if (latencyP95) {
-      properties['daimo:latency_p95_ms'] = latencyP95;
+      mlMetadata['daimo:latencyP95Ms'] = latencyP95;
     }
     if (throughput) {
-      properties['daimo:throughput_rps'] = throughput;
+      mlMetadata['daimo:throughputRps'] = throughput;
     }
     if (rateLimits) {
-      properties['daimo:rate_limits'] = rateLimits;
+      mlMetadata['daimo:rateLimits'] = rateLimits;
     }
     if (availabilityTier) {
-      properties['daimo:availability_tier'] = availabilityTier;
+      mlMetadata['daimo:availabilityTier'] = availabilityTier;
     }
   }
 
@@ -911,6 +943,7 @@ export class AssetCreateComponent implements OnChanges {
       .forEach(key => {
         delete properties[key];
       });
+    delete properties['assetData'];
   }
 
   private readFirstString(keys: readonly string[]): string {
@@ -918,13 +951,15 @@ export class AssetCreateComponent implements OnChanges {
   }
 
   private readStringList(keys: readonly string[]): string[] {
-    const values = keys.flatMap(key => this.extractStrings(this.properties[key]));
+    const daimoMetadata = this.extractDaimoMetadata(this.properties);
+    const values = keys.flatMap(key => this.extractStrings(this.properties[key] ?? daimoMetadata[key]));
     return this.uniqueStrings(values);
   }
 
   private readBoolean(keys: readonly string[]): boolean {
+    const daimoMetadata = this.extractDaimoMetadata(this.properties);
     for (const key of keys) {
-      const value = this.extractScalar(this.properties[key]);
+      const value = this.extractScalar(this.properties[key] ?? daimoMetadata[key]);
       if (typeof value === 'boolean') {
         return value;
       }
@@ -942,8 +977,9 @@ export class AssetCreateComponent implements OnChanges {
   }
 
   private readJsonText(keys: readonly string[]): string {
+    const daimoMetadata = this.extractDaimoMetadata(this.properties);
     for (const key of keys) {
-      const rawValue = this.properties[key];
+      const rawValue = this.properties[key] ?? daimoMetadata[key];
       const parsed = this.extractJsonValue(rawValue);
       if (parsed === undefined) {
         continue;
@@ -963,6 +999,26 @@ export class AssetCreateComponent implements OnChanges {
       return JSON.stringify(parsed, null, 2);
     }
     return '';
+  }
+
+  private extractDaimoMetadata(properties: Record<string, JsonValue>): Record<string, JsonValue> {
+    const assetData = properties['assetData'];
+    if (!assetData || typeof assetData !== 'object' || Array.isArray(assetData)) {
+      return {};
+    }
+
+    const assetDataRecord = assetData as Record<string, JsonValue>;
+    const modelNode = assetDataRecord['JS_DAIMO_Model'];
+    if (modelNode && typeof modelNode === 'object' && !Array.isArray(modelNode)) {
+      return modelNode as Record<string, JsonValue>;
+    }
+
+    const datasetNode = assetDataRecord['JS_DAIMO_Dataset'];
+    if (datasetNode && typeof datasetNode === 'object' && !Array.isArray(datasetNode)) {
+      return datasetNode as Record<string, JsonValue>;
+    }
+
+    return {};
   }
 
   private ensureOption(options: string[], value: string): void {
@@ -1082,16 +1138,16 @@ export class AssetCreateComponent implements OnChanges {
     return '';
   }
 
-  private extractInputFeaturesFromSchema(schema: Record<string, unknown>): Array<Record<string, JsonValue>> {
-    const result: Array<Record<string, JsonValue>> = [];
-    this.collectSchemaFeatures(schema, '', result);
+  private extractInputSchemaFieldsFromSchema(schema: Record<string, unknown>): Record<string, JsonValue>[] {
+    const result: Record<string, JsonValue>[] = [];
+    this.collectSchemaFields(schema, '', result);
     return result;
   }
 
-  private collectSchemaFeatures(
+  private collectSchemaFields(
     schemaNode: Record<string, unknown>,
     prefix: string,
-    target: Array<Record<string, JsonValue>>,
+    target: Record<string, JsonValue>[],
   ): void {
     const propertiesNode = schemaNode['properties'];
     if (!this.isRecord(propertiesNode)) {
@@ -1112,13 +1168,13 @@ export class AssetCreateComponent implements OnChanges {
       });
 
       if (type === 'object' && this.isRecord(propertyRecord['properties'])) {
-        this.collectSchemaFeatures(propertyRecord, path, target);
+        this.collectSchemaFields(propertyRecord, path, target);
       }
 
       if (type === 'array' && this.isRecord(propertyRecord['items'])) {
         const itemSchema = propertyRecord['items'] as Record<string, unknown>;
         if (this.isRecord(itemSchema['properties'])) {
-          this.collectSchemaFeatures(itemSchema, `${path}[]`, target);
+          this.collectSchemaFields(itemSchema, `${path}[]`, target);
         }
       }
     });
@@ -1271,7 +1327,7 @@ export class AssetCreateComponent implements OnChanges {
     return root;
   }
 
-  private parseSchemaPath(path: string): Array<{ key: string; isArray: boolean }> {
+  private parseSchemaPath(path: string): { key: string; isArray: boolean }[] {
     const segments = path
       .split('.')
       .map(segment => segment.trim())
@@ -1419,7 +1475,7 @@ export class AssetCreateComponent implements OnChanges {
 
   private setValueAtPath(
     target: Record<string, unknown>,
-    segments: Array<{ key: string; isArray: boolean }>,
+    segments: { key: string; isArray: boolean }[],
     value: unknown,
   ): void {
     let cursor: Record<string, unknown> = target;

@@ -46,7 +46,7 @@
   (deprovisionEvent)="onDeprovision($event)"
 ></lib-transfer-history-table>
 
-@if (contractType !== 'PROVIDER' && (transferProcesses$ | async)?.length == 0) {
+@if (contractType !== 'PROVIDER' && (transferProcesses$ | async)?.length === 0) {
   <div class="absolute">
     <div
       class="tooltip tooltip-open tooltip-primary tooltip-right absolute top-[calc(var(--spacing)*76)] -left-6"

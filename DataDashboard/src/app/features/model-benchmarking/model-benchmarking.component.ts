@@ -11,7 +11,7 @@ import {
   TransferProcessStates,
 } from '@think-it-labs/edc-connector-client';
 import { Subject, filter, firstValueFrom, map, takeUntil, timeout } from 'rxjs';
-import { ExecutableAsset, InputFeatureSpec, MlGuiAsset } from '../../models/ml-gui-asset';
+import { ExecutableAsset, InputSchemaFieldSpec, MlGuiAsset } from '../../models/ml-gui-asset';
 import { DashboardMlBrowserService } from '../../services/dashboard-ml-browser.service';
 import { DashboardModelExecutionService } from '../../services/dashboard-model-execution.service';
 import { DashboardModelObserverService } from '../../services/dashboard-model-observer.service';
@@ -20,6 +20,7 @@ interface BenchmarkResultRow {
   rank: number;
   assetId: string;
   modelName: string;
+  benchmarkModelType: 'output' | 'metric';
   sampleCount: number;
   successCount: number;
   errorCount: number;
@@ -28,12 +29,14 @@ interface BenchmarkResultRow {
   p95LatencyMs: number;
   throughputRps: number;
   accuracyPercent: number | null;
+  metrics: Record<string, number>;
   score: number;
 }
 
 interface BenchmarkAccumulator {
   assetId: string;
   modelName: string;
+  benchmarkModelType: 'output' | 'metric';
   sampleCount: number;
   successCount: number;
   errorCount: number;
@@ -42,11 +45,12 @@ interface BenchmarkAccumulator {
   p95LatencyMs: number;
   throughputRps: number;
   accuracyPercent: number | null;
+  metrics: Record<string, number>;
 }
 
 type TaskFilter = 'all' | 'classification' | 'regression' | 'nlp' | 'vision' | 'other';
 
-const TASK_FILTER_OPTIONS: Array<{ value: TaskFilter; label: string }> = [
+const TASK_FILTER_OPTIONS: { value: TaskFilter; label: string }[] = [
   { value: 'all', label: 'All Tasks' },
   { value: 'classification', label: 'Classification' },
   { value: 'regression', label: 'Regression' },
@@ -60,6 +64,7 @@ interface ProbeResult {
   latencyMs: number;
   evaluated: boolean;
   correct: boolean;
+  output?: unknown;
   errorMessage?: string;
 }
 
@@ -96,7 +101,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
   dataspaceDatasetAssets: MlGuiAsset[] = [];
   selectedDataspaceDatasetId = '';
   dataspaceDatasetSearch = '';
-  datasetRows: Array<Record<string, unknown>> = [];
+  datasetRows: Record<string, unknown>[] = [];
   datasetFileName = '';
   datasetParseMessage = '';
   datasetPreview = '';
@@ -109,6 +114,9 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
   errorMessage = '';
   benchmarkErrors: string[] = [];
   results: BenchmarkResultRow[] = [];
+  availableMetrics: string[] = [];
+  selectedMetrics: string[] = [];
+  rankingMetric = 'score';
 
   completedRequests = 0;
   totalRequests = 0;
@@ -121,8 +129,14 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
   benchmarkParallelism = 8;
   validationParallelism = 6;
   validationSampleRows = 3;
+  private readonly batchBenchmarkSize = 64;
   private readonly transferPollIntervalMs = 500;
   private readonly transferPollTimeoutMs = 120000;
+  private readonly metricDefaults: Record<'classification' | 'regression', string[]> = {
+    classification: ['Accuracy', 'Precision', 'Recall', 'F1 Score'],
+    regression: ['RMSE', 'MAE', 'MSE', 'R2'],
+  };
+  private readonly lowerIsBetterMetrics = ['RMSE', 'MAE', 'MSE', 'averageLatencyMs', 'p95LatencyMs'];
 
   ngOnInit(): void {
     this.loadExecutableAssets();
@@ -215,6 +229,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     return (
       this.selectedModelCount >= 2 &&
       this.datasetRows.length > 0 &&
+      this.selectedMetrics.length > 0 &&
       !this.runningBenchmark &&
       !this.runningValidation &&
       !this.loadingDatasetFromDataspace
@@ -247,6 +262,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
         next: assets => {
           this.executableAssets = assets;
           this.selectedAssetIds = this.sanitizeSelectedAssetIds(this.selectedAssetIds, assets);
+          this.syncMetricSelection();
           this.loadingAssets = false;
           if (assets.length === 0) {
             this.statusMessage = 'No executable assets found for benchmark.';
@@ -310,10 +326,12 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
         return;
       }
       this.selectedAssetIds.add(assetId);
+      this.syncMetricSelection();
       return;
     }
 
     this.selectedAssetIds.delete(assetId);
+    this.syncMetricSelection();
   }
 
   setTaskFilter(filter: TaskFilter): void {
@@ -344,6 +362,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
 
   clearSelection(): void {
     this.selectedAssetIds.clear();
+    this.syncMetricSelection();
   }
 
   selectAllAssets(): void {
@@ -353,7 +372,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     }
 
     const current = this.getSelectedAssetsInOrder();
-    const reference = current[0] || candidates.find(asset => this.normalizeFeatures(asset.inputFeatures || []).length > 0);
+    const reference = current[0] || candidates.find(asset => this.normalizeSchemaFields(asset.inputSchemaFields || []).length > 0);
     if (!reference) {
       this.modalAndAlertService.showAlert(
         'No model with input schema metadata is available for benchmark selection.',
@@ -366,6 +385,39 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
 
     const compatible = candidates.filter(asset => this.areAssetsCompatible(reference, asset));
     this.selectedAssetIds = new Set(compatible.map(asset => asset.id));
+    this.syncMetricSelection();
+  }
+
+  toggleMetric(metric: string): void {
+    if (this.runningBenchmark || this.runningValidation || this.loadingDatasetFromDataspace) {
+      return;
+    }
+
+    if (this.selectedMetrics.includes(metric)) {
+      this.selectedMetrics = this.selectedMetrics.filter(item => item !== metric);
+    } else {
+      this.selectedMetrics = [...this.selectedMetrics, metric];
+    }
+
+    if (this.selectedMetrics.length === 0) {
+      this.rankingMetric = 'score';
+      return;
+    }
+
+    if (this.rankingMetric !== 'score' && !this.selectedMetrics.includes(this.rankingMetric)) {
+      this.rankingMetric = this.selectedMetrics[0];
+    }
+  }
+
+  sortResultsBy(metric: string): void {
+    this.rankingMetric = metric;
+    if (this.results.length > 0) {
+      this.results = this.rankResults(this.results);
+    }
+  }
+
+  isMetricSelected(metric: string): boolean {
+    return this.selectedMetrics.includes(metric);
   }
 
   isAssetSelected(assetId: string): boolean {
@@ -491,12 +543,9 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
       this.errorMessage = 'Upload a dataset before validating input.';
       return;
     }
-    if (this.expectedPath.trim().length > 0 && this.predictionPath.trim().length === 0) {
-      this.errorMessage = 'Set prediction path when expected path is provided.';
-      return;
-    }
 
     const selectedAssets = this.getSelectedAssetsInOrder();
+    this.syncMetricSelection();
     const sampleRows = this.datasetRows.slice(0, Math.max(1, Math.min(this.validationSampleRows, this.datasetRows.length)));
     const schemaValidationErrors = this.validateBenchmarkSchema(selectedAssets, sampleRows);
     if (schemaValidationErrors.length > 0) {
@@ -511,7 +560,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     this.completedRequests = 0;
     this.statusMessage = `Validating input with ${sampleRows.length} sample row(s)...`;
 
-    const checks: Array<{ asset: ExecutableAsset; row: Record<string, unknown>; rowIndex: number }> = [];
+    const checks: { asset: ExecutableAsset; row: Record<string, unknown>; rowIndex: number }[] = [];
     selectedAssets.forEach(asset => {
       sampleRows.forEach((row, rowIndex) => {
         checks.push({ asset, row, rowIndex });
@@ -570,12 +619,9 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
       this.errorMessage = 'Upload a dataset before running benchmark.';
       return;
     }
-    if (this.expectedPath.trim().length > 0 && this.predictionPath.trim().length === 0) {
-      this.errorMessage = 'Set prediction path when expected path is provided.';
-      return;
-    }
 
     const selectedAssets = this.getSelectedAssetsInOrder();
+    this.syncMetricSelection();
     const schemaValidationErrors = this.validateBenchmarkSchema(selectedAssets, this.datasetRows);
     if (schemaValidationErrors.length > 0) {
       this.errorMessage = schemaValidationErrors[0];
@@ -626,37 +672,37 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     asset: ExecutableAsset,
     observerContext: ObserverRunContext,
   ): Promise<BenchmarkAccumulator> {
+    if (this.isMetricBenchmarkModel(asset)) {
+      return this.runMetricBenchmarkForAsset(asset, observerContext);
+    }
+
     const modelStart = performance.now();
-    const outcomes = await this.mapWithConcurrency(
-      this.datasetRows,
-      Math.max(1, this.benchmarkParallelism),
-      async row => {
-        const result = await this.executeProbe(asset, row, observerContext);
-        this.completedRequests += 1;
-        if (this.completedRequests % 25 === 0) {
-          await new Promise<void>(resolve => setTimeout(resolve, 0));
-        }
-        if (!result.success && result.errorMessage) {
-          this.recordBenchmarkError(asset.name, result.errorMessage);
-        }
-        return result;
-      },
-    );
+    const outcomes = asset.requestShape === 'batch'
+      ? await this.runBatchBenchmarkForAsset(asset, observerContext)
+      : await this.runSingleBenchmarkForAsset(asset, observerContext);
 
     const latencies = outcomes.filter(outcome => outcome.success).map(outcome => outcome.latencyMs);
     const successCount = outcomes.filter(outcome => outcome.success).length;
     const errorCount = outcomes.length - successCount;
     const evaluatedCount = outcomes.filter(outcome => outcome.evaluated).length;
     const correctCount = outcomes.filter(outcome => outcome.evaluated && outcome.correct).length;
+    const outputs = outcomes.map(outcome => outcome.output);
+    const metrics = this.calculateLocalMetrics(asset, this.datasetRows, outputs);
 
     const elapsedMs = Math.max(1, performance.now() - modelStart);
     const sampleCount = this.datasetRows.length;
     const successRate = sampleCount > 0 ? (successCount / sampleCount) * 100 : 0;
-    const accuracyPercent = evaluatedCount > 0 ? (correctCount / evaluatedCount) * 100 : null;
+    const accuracyMetric = this.findMetricValue(metrics, 'Accuracy');
+    const accuracyPercent = Number.isFinite(accuracyMetric)
+      ? accuracyMetric * 100
+      : evaluatedCount > 0
+        ? (correctCount / evaluatedCount) * 100
+        : null;
 
     return {
       assetId: asset.id,
       modelName: asset.name,
+      benchmarkModelType: asset.benchmarkModelType || 'output',
       sampleCount,
       successCount,
       errorCount,
@@ -665,7 +711,128 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
       p95LatencyMs: this.percentile(latencies, 0.95),
       throughputRps: successCount / (elapsedMs / 1000),
       accuracyPercent,
+      metrics,
     };
+  }
+
+  private async runMetricBenchmarkForAsset(
+    asset: ExecutableAsset,
+    observerContext: ObserverRunContext,
+  ): Promise<BenchmarkAccumulator> {
+    const startedAt = performance.now();
+    try {
+      const response = await firstValueFrom(
+        this.executionService
+          .executeModel({
+            assetId: asset.id,
+            modelName: asset.name,
+            payload: this.datasetRows,
+            path: asset.executionPath,
+            benchmarkRunId: observerContext.benchmarkRunId,
+            correlationId: observerContext.correlationId,
+            usageSessionId: observerContext.correlationId,
+          })
+          .pipe(timeout(this.requestTimeoutMs)),
+      );
+
+      const elapsedMs = Math.max(0, performance.now() - startedAt);
+      this.completedRequests += this.datasetRows.length;
+      await this.yieldProgressIfNeeded();
+      const metrics = this.extractMetricModelMetrics(response.output);
+      if (Object.keys(metrics).length === 0) {
+        throw new Error('Metric model did not return any selected benchmark metric.');
+      }
+
+      return {
+        assetId: asset.id,
+        modelName: asset.name,
+        benchmarkModelType: 'metric',
+        sampleCount: this.datasetRows.length,
+        successCount: this.datasetRows.length,
+        errorCount: 0,
+        successRate: 100,
+        averageLatencyMs: elapsedMs / Math.max(this.datasetRows.length, 1),
+        p95LatencyMs: elapsedMs,
+        throughputRps: this.datasetRows.length / Math.max(elapsedMs / 1000, 0.001),
+        accuracyPercent: this.metricAsPercent(metrics, 'Accuracy'),
+        metrics,
+      };
+    } catch (error) {
+      const message = this.toErrorMessage(error, 'Metric model execution failed.');
+      this.recordBenchmarkError(asset.name, message);
+      return {
+        assetId: asset.id,
+        modelName: asset.name,
+        benchmarkModelType: 'metric',
+        sampleCount: this.datasetRows.length,
+        successCount: 0,
+        errorCount: this.datasetRows.length,
+        successRate: 0,
+        averageLatencyMs: Math.max(0, performance.now() - startedAt),
+        p95LatencyMs: Math.max(0, performance.now() - startedAt),
+        throughputRps: 0,
+        accuracyPercent: null,
+        metrics: {},
+      };
+    }
+  }
+
+  private async runSingleBenchmarkForAsset(
+    asset: ExecutableAsset,
+    observerContext: ObserverRunContext,
+  ): Promise<ProbeResult[]> {
+    return this.mapWithConcurrency(
+      this.datasetRows,
+      Math.max(1, this.benchmarkParallelism),
+      async row => {
+        const result = await this.executeProbe(asset, row, observerContext);
+        this.completedRequests += 1;
+        await this.yieldProgressIfNeeded();
+        if (!result.success && result.errorMessage) {
+          this.recordBenchmarkError(asset.name, result.errorMessage);
+        }
+        return result;
+      },
+    );
+  }
+
+  private async runBatchBenchmarkForAsset(
+    asset: ExecutableAsset,
+    observerContext: ObserverRunContext,
+  ): Promise<ProbeResult[]> {
+    const batches = this.chunkRows(this.datasetRows, this.batchBenchmarkSize);
+    const batchOutcomes = await this.mapWithConcurrency(
+      batches,
+      Math.max(1, this.benchmarkParallelism),
+      async rows => {
+        const results = await this.executeBatchProbe(asset, rows, observerContext);
+        this.completedRequests += rows.length;
+        await this.yieldProgressIfNeeded();
+        results.forEach(result => {
+          if (!result.success && result.errorMessage) {
+            this.recordBenchmarkError(asset.name, result.errorMessage);
+          }
+        });
+        return results;
+      },
+    );
+
+    return batchOutcomes.flat();
+  }
+
+  private async yieldProgressIfNeeded(): Promise<void> {
+    if (this.completedRequests % 25 === 0) {
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+    }
+  }
+
+  private chunkRows<T>(rows: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    const chunkSize = Math.max(1, size);
+    for (let index = 0; index < rows.length; index += chunkSize) {
+      chunks.push(rows.slice(index, index + chunkSize));
+    }
+    return chunks;
   }
 
   private recordBenchmarkObserverEvent(
@@ -745,11 +912,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
   }
 
   private selectedBenchmarkMetrics(): string[] {
-    const metrics = ['successRate', 'averageLatencyMs', 'p95LatencyMs', 'throughputRps'];
-    if (this.expectedPath.trim().length > 0 && this.predictionPath.trim().length > 0) {
-      metrics.push('accuracyPercent');
-    }
-    return metrics;
+    return ['successRate', 'averageLatencyMs', 'p95LatencyMs', 'throughputRps', ...this.selectedMetrics];
   }
 
   private benchmarkSummary(
@@ -806,6 +969,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
       'rank',
       'modelName',
       'assetId',
+      'benchmarkModelType',
       'samples',
       'successes',
       'errors',
@@ -814,6 +978,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
       'p95LatencyMs',
       'throughputRps',
       'accuracyPercent',
+      ...this.selectedMetrics,
       'score',
     ];
 
@@ -822,6 +987,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
         result.rank,
         result.modelName,
         result.assetId,
+        result.benchmarkModelType,
         result.sampleCount,
         result.successCount,
         result.errorCount,
@@ -830,6 +996,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
         result.p95LatencyMs.toFixed(2),
         result.throughputRps.toFixed(2),
         result.accuracyPercent === null ? '' : result.accuracyPercent.toFixed(2),
+        ...this.selectedMetrics.map(metric => result.metrics[metric] === undefined ? '' : result.metrics[metric].toFixed(6)),
         result.score.toFixed(2),
       ]
         .map(value => this.toCsvValue(value))
@@ -874,14 +1041,23 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
   private hasInferenceMetadata(asset: MlGuiAsset): boolean {
     const direct = asset.rawProperties || {};
     const nested = (asset.rawProperties?.['properties'] as Record<string, unknown>) || {};
+    const directDaimo = this.extractDaimoMetadata(direct);
+    const nestedDaimo = this.extractDaimoMetadata(nested);
     const keys = [
-      'https://pionera.ai/edc/daimo#inference_path',
-      'daimo:inference_path',
-      'inference_path',
+      'https://w3id.org/pionera/daimo#inferencePath',
+      'daimo:inferencePath',
       'inferencePath',
       'path',
     ];
     return keys.some(key => {
+      const directDaimoValue = directDaimo[key];
+      if (typeof directDaimoValue === 'string' && directDaimoValue.trim().length > 0) {
+        return true;
+      }
+      const nestedDaimoValue = nestedDaimo[key];
+      if (typeof nestedDaimoValue === 'string' && nestedDaimoValue.trim().length > 0) {
+        return true;
+      }
       const directValue = direct[key];
       if (typeof directValue === 'string' && directValue.trim().length > 0) {
         return true;
@@ -910,14 +1086,16 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     return `${name}.json`;
   }
 
-  private extractInlineDatasetRows(asset: MlGuiAsset, datasetFileName: string): Array<Record<string, unknown>> | null {
-    const sources: Array<Record<string, unknown>> = [];
+  private extractInlineDatasetRows(asset: MlGuiAsset, datasetFileName: string): Record<string, unknown>[] | null {
+    const sources: Record<string, unknown>[] = [];
     if (this.isRecord(asset.rawProperties)) {
       sources.push(asset.rawProperties);
+      sources.push(this.extractDaimoMetadata(asset.rawProperties));
     }
     const nested = asset.rawProperties?.['properties'];
     if (this.isRecord(nested)) {
       sources.push(nested);
+      sources.push(this.extractDaimoMetadata(nested));
     }
     if (this.isRecord(asset.assetData)) {
       sources.push(asset.assetData);
@@ -925,7 +1103,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
 
     const candidateKeys = [
       'daimo:benchmark_dataset',
-      'https://pionera.ai/edc/daimo#benchmark_dataset',
+      'https://w3id.org/pionera/daimo#benchmark_dataset',
       'benchmark_dataset',
       'benchmarkDataset',
       'dataset',
@@ -990,13 +1168,15 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     expectedPath: string;
     predictionPath: string;
   } | null {
-    const sources: Array<Record<string, unknown>> = [];
+    const sources: Record<string, unknown>[] = [];
     if (this.isRecord(asset.rawProperties)) {
       sources.push(asset.rawProperties);
+      sources.push(this.extractDaimoMetadata(asset.rawProperties));
     }
     const nested = asset.rawProperties?.['properties'];
     if (this.isRecord(nested)) {
       sources.push(nested);
+      sources.push(this.extractDaimoMetadata(nested));
     }
     if (this.isRecord(asset.assetData)) {
       sources.push(asset.assetData);
@@ -1004,11 +1184,22 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
 
     const mappingKeys = [
       'daimo:benchmark_dataset_mapping',
-      'https://pionera.ai/edc/daimo#benchmark_dataset_mapping',
+      'https://w3id.org/pionera/daimo#benchmark_dataset_mapping',
       'benchmark_dataset_mapping',
       'benchmarkDatasetMapping',
       'mapping',
     ];
+
+    const explicitInputPath = this.readFirstFieldPath(sources, [
+      'daimo:input',
+      'https://w3id.org/pionera/daimo#input',
+      'input',
+    ]);
+    const explicitExpectedPath = this.readFirstFieldPath(sources, [
+      'daimo:label',
+      'https://w3id.org/pionera/daimo#label',
+      'label',
+    ]);
 
     for (const source of sources) {
       for (const key of mappingKeys) {
@@ -1021,32 +1212,31 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
           continue;
         }
 
-        const inputPath = this.readMappingPath(mapping, ['inputPath', 'input_path', 'payloadPath', 'payload_path']);
+        const inputPath = this.readMappingPath(mapping, ['input', 'inputPath']);
         const expectedPath = this.readMappingPath(mapping, [
+          'label',
           'expectedPath',
-          'expected_path',
-          'labelPath',
-          'label_path',
-          'groundTruthPath',
-          'ground_truth_path',
         ]);
         const predictionPath = this.readMappingPath(mapping, [
           'predictionPath',
-          'prediction_path',
-          'resultPath',
-          'result_path',
-          'outputPath',
-          'output_path',
         ]);
 
         if (inputPath || expectedPath || predictionPath) {
           return {
-            inputPath,
-            expectedPath,
+            inputPath: explicitInputPath || inputPath,
+            expectedPath: explicitExpectedPath || expectedPath,
             predictionPath,
           };
         }
       }
+    }
+
+    if (explicitInputPath || explicitExpectedPath) {
+      return {
+        inputPath: explicitInputPath,
+        expectedPath: explicitExpectedPath,
+        predictionPath: '',
+      };
     }
 
     return null;
@@ -1083,7 +1273,30 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     return '';
   }
 
-  private applyLoadedDataset(rows: Array<Record<string, unknown>>, fileName: string): void {
+  private readFirstFieldPath(sources: Record<string, unknown>[], keys: string[]): string {
+    for (const source of sources) {
+      for (const key of keys) {
+        const fieldPath = this.readFieldPathValue(source[key]);
+        if (fieldPath) {
+          return fieldPath;
+        }
+      }
+    }
+    return '';
+  }
+
+  private readFieldPathValue(value: unknown): string {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    if (Array.isArray(value)) {
+      const first = value.find(item => typeof item === 'string' && item.trim().length > 0);
+      return typeof first === 'string' ? first.trim() : '';
+    }
+    return '';
+  }
+
+  private applyLoadedDataset(rows: Record<string, unknown>[], fileName: string): void {
     this.datasetRows = rows;
     this.datasetFileName = fileName;
     this.datasetPreview = JSON.stringify(rows.slice(0, 3), null, 2);
@@ -1208,7 +1421,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     }
   }
 
-  private parseDataset(fileName: string, text: string): Array<Record<string, unknown>> {
+  private parseDataset(fileName: string, text: string): Record<string, unknown>[] {
     const normalized = fileName.toLowerCase();
     if (normalized.endsWith('.jsonl')) {
       return this.parseJsonlDataset(text);
@@ -1231,7 +1444,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     }
   }
 
-  private parseJsonDataset(text: string): Array<Record<string, unknown>> {
+  private parseJsonDataset(text: string): Record<string, unknown>[] {
     const parsed = JSON.parse(text) as unknown;
 
     if (Array.isArray(parsed)) {
@@ -1252,8 +1465,8 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     return this.normalizeRows([parsed]);
   }
 
-  private parseJsonlDataset(text: string): Array<Record<string, unknown>> {
-    const rows: Array<Record<string, unknown>> = [];
+  private parseJsonlDataset(text: string): Record<string, unknown>[] {
+    const rows: Record<string, unknown>[] = [];
     const lines = text.split(/\r?\n/);
 
     lines.forEach((line, index) => {
@@ -1280,7 +1493,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     return rows;
   }
 
-  private parseCsvDataset(text: string): Array<Record<string, unknown>> {
+  private parseCsvDataset(text: string): Record<string, unknown>[] {
     const lines = text
       .split(/\r?\n/)
       .map(line => line.trim())
@@ -1291,7 +1504,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     }
 
     const headers = this.splitCsvLine(lines[0]).map((header, index) => header || `column_${index + 1}`);
-    const rows: Array<Record<string, unknown>> = [];
+    const rows: Record<string, unknown>[] = [];
 
     for (let index = 1; index < lines.length; index += 1) {
       const cells = this.splitCsvLine(lines[index]);
@@ -1408,7 +1621,8 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     row: Record<string, unknown>,
     observerContext: ObserverRunContext = {},
   ): Promise<ProbeResult> {
-    const payload = this.resolveInputPayload(row);
+    const rowPayload = this.resolveInputPayload(row);
+    const payload = asset.requestShape === 'batch' ? [rowPayload] : rowPayload;
     const startedAt = performance.now();
 
     try {
@@ -1426,11 +1640,14 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
           .pipe(timeout(this.requestTimeoutMs)),
       );
 
+      const output = asset.requestShape === 'batch'
+        ? this.expandBatchOutputs(response.output, 1)[0]
+        : response.output;
       let evaluated = false;
       let correct = false;
       if (this.expectedPath.trim().length > 0 && this.predictionPath.trim().length > 0) {
         const expected = this.getValueAtPath(row, this.expectedPath);
-        const predicted = this.getValueAtPath(response.output, this.predictionPath);
+        const predicted = this.getValueAtPath(output, this.predictionPath);
         if (expected !== undefined && predicted !== undefined) {
           evaluated = true;
           correct = this.sameValue(expected, predicted);
@@ -1442,6 +1659,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
         latencyMs: Math.max(0, performance.now() - startedAt),
         evaluated,
         correct,
+        output,
       };
     } catch (error) {
       return {
@@ -1452,6 +1670,94 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
         errorMessage: this.toErrorMessage(error, 'Execution request failed.'),
       };
     }
+  }
+
+  private async executeBatchProbe(
+    asset: ExecutableAsset,
+    rows: Record<string, unknown>[],
+    observerContext: ObserverRunContext = {},
+  ): Promise<ProbeResult[]> {
+    const payload = rows.map(row => this.resolveInputPayload(row));
+    const startedAt = performance.now();
+
+    try {
+      const response = await firstValueFrom(
+        this.executionService
+          .executeModel({
+            assetId: asset.id,
+            modelName: asset.name,
+            payload,
+            path: asset.executionPath,
+            benchmarkRunId: observerContext.benchmarkRunId,
+            correlationId: observerContext.correlationId,
+            usageSessionId: observerContext.correlationId,
+          })
+          .pipe(timeout(this.requestTimeoutMs)),
+      );
+
+      const elapsed = Math.max(0, performance.now() - startedAt);
+      const perRowLatencyMs = elapsed / Math.max(rows.length, 1);
+      const outputs = this.expandBatchOutputs(response.output, rows.length);
+
+      return rows.map((row, index) => {
+        const output = outputs[index];
+        if (output === undefined || output === null) {
+          return {
+            success: false,
+            latencyMs: perRowLatencyMs,
+            evaluated: false,
+            correct: false,
+            errorMessage: 'Batch response did not contain an output for this row.',
+          };
+        }
+
+        let evaluated = false;
+        let correct = false;
+        if (this.expectedPath.trim().length > 0 && this.predictionPath.trim().length > 0) {
+          const expected = this.getValueAtPath(row, this.expectedPath);
+          const predicted = this.getValueAtPath(output, this.predictionPath);
+          if (expected !== undefined && predicted !== undefined) {
+            evaluated = true;
+            correct = this.sameValue(expected, predicted);
+          }
+        }
+
+        return {
+          success: true,
+          latencyMs: perRowLatencyMs,
+          evaluated,
+          correct,
+          output,
+        };
+      });
+    } catch (error) {
+      const perRowLatencyMs = Math.max(0, performance.now() - startedAt) / Math.max(rows.length, 1);
+      const errorMessage = this.toErrorMessage(error, 'Batch execution request failed.');
+      return rows.map(() => ({
+        success: false,
+        latencyMs: perRowLatencyMs,
+        evaluated: false,
+        correct: false,
+        errorMessage,
+      }));
+    }
+  }
+
+  private expandBatchOutputs(output: unknown, expectedCount: number): unknown[] {
+    if (Array.isArray(output)) {
+      return output;
+    }
+
+    if (this.isRecord(output)) {
+      for (const key of ['predictions', 'outputs', 'results', 'data', 'items', 'values']) {
+        const nested = output[key];
+        if (Array.isArray(nested)) {
+          return nested;
+        }
+      }
+    }
+
+    return expectedCount === 1 ? [output] : [];
   }
 
   private async mapWithConcurrency<T, R>(
@@ -1522,6 +1828,67 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     return selected.length > 0 ? selected[0] : null;
   }
 
+  private syncMetricSelection(): void {
+    const nextAvailable = this.getAvailableMetricsForSelection(this.getSelectedAssetsInOrder());
+    this.availableMetrics = nextAvailable;
+    this.selectedMetrics = this.selectedMetrics.filter(metric => nextAvailable.includes(metric));
+
+    if (this.selectedMetrics.length === 0) {
+      this.selectedMetrics = [...nextAvailable];
+    }
+
+    if (this.rankingMetric !== 'score' && !this.selectedMetrics.includes(this.rankingMetric)) {
+      this.rankingMetric = this.selectedMetrics[0] || 'score';
+    }
+  }
+
+  private getAvailableMetricsForSelection(selectedAssets: ExecutableAsset[]): string[] {
+    if (selectedAssets.length === 0) {
+      return [];
+    }
+
+    if (selectedAssets.every(asset => this.isMetricBenchmarkModel(asset))) {
+      const declared = selectedAssets
+        .map(asset => this.uniqueStrings(asset.supportedMetrics || []))
+        .filter(metrics => metrics.length > 0);
+
+      if (declared.length === 0) {
+        return [];
+      }
+
+      const [first, ...remaining] = declared;
+      const common = first.filter(metric =>
+        remaining.every(metrics => metrics.some(candidate => this.normalizeMetricName(candidate) === this.normalizeMetricName(metric))),
+      );
+      return common.length > 0 ? common : this.uniqueStrings(declared.flat());
+    }
+
+    const task = this.detectComparableTask(selectedAssets);
+    return task === 'classification' || task === 'regression' ? [...this.metricDefaults[task]] : [];
+  }
+
+  private detectComparableTask(selectedAssets: ExecutableAsset[]): 'classification' | 'regression' | 'unsupported' {
+    const tasks = selectedAssets
+      .filter(asset => !this.isMetricBenchmarkModel(asset))
+      .map(asset => this.detectAssetTask(asset))
+      .map(task => {
+        if (task === 'classification') {
+          return 'classification' as const;
+        }
+        if (task === 'regression') {
+          return 'regression' as const;
+        }
+        return 'unsupported' as const;
+      });
+
+    const unique = Array.from(new Set(tasks));
+    return unique.length === 1 ? unique[0] : 'unsupported';
+  }
+
+  private isMetricBenchmarkModel(asset: ExecutableAsset): boolean {
+    return (asset.benchmarkModelType || 'output') === 'metric';
+  }
+
   private sanitizeSelectedAssetIds(current: Set<string>, availableAssets: ExecutableAsset[]): Set<string> {
     const availableById = new Map(availableAssets.map(asset => [asset.id, asset]));
     const nextSelection: string[] = [];
@@ -1533,7 +1900,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
         return;
       }
 
-      if (this.normalizeFeatures(asset.inputFeatures || []).length === 0) {
+      if (this.normalizeSchemaFields(asset.inputSchemaFields || []).length === 0) {
         return;
       }
 
@@ -1552,11 +1919,11 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
   }
 
   private isAssetSelectable(asset: ExecutableAsset): { allowed: boolean; reason: string } {
-    const features = this.normalizeFeatures(asset.inputFeatures || []);
+    const features = this.normalizeSchemaFields(asset.inputSchemaFields || []);
     if (features.length === 0) {
       return {
         allowed: false,
-        reason: `Model "${asset.name}" has no input schema metadata. Add daimo:input_schema or daimo:input_features first.`,
+        reason: `Model "${asset.name}" has no input schema metadata. Add daimo:inputSchema first.`,
       };
     }
 
@@ -1568,7 +1935,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     if (!this.areAssetsCompatible(reference, asset)) {
       return {
         allowed: false,
-        reason: `Schema mismatch: "${asset.name}" is not compatible with "${reference.name}".`,
+        reason: `Schema/request shape/benchmark type mismatch: "${asset.name}" is not compatible with "${reference.name}".`,
       };
     }
 
@@ -1580,13 +1947,21 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
       return true;
     }
 
-    const referenceFeatures = this.normalizeFeatures(reference.inputFeatures || []);
-    const candidateFeatures = this.normalizeFeatures(candidate.inputFeatures || []);
-    if (referenceFeatures.length === 0 || candidateFeatures.length === 0) {
+    if ((reference.requestShape || 'single') !== (candidate.requestShape || 'single')) {
       return false;
     }
 
-    return this.featuresSignature(referenceFeatures) === this.featuresSignature(candidateFeatures);
+    if ((reference.benchmarkModelType || 'output') !== (candidate.benchmarkModelType || 'output')) {
+      return false;
+    }
+
+    const referenceSchemaFields = this.normalizeSchemaFields(reference.inputSchemaFields || []);
+    const candidateSchemaFields = this.normalizeSchemaFields(candidate.inputSchemaFields || []);
+    if (referenceSchemaFields.length === 0 || candidateSchemaFields.length === 0) {
+      return false;
+    }
+
+    return this.schemaFieldsSignature(referenceSchemaFields) === this.schemaFieldsSignature(candidateSchemaFields);
   }
 
   private detectAssetTask(asset: ExecutableAsset): TaskFilter {
@@ -1624,19 +1999,19 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
 
   private validateBenchmarkSchema(
     selectedAssets: ExecutableAsset[],
-    rowsToValidate: Array<Record<string, unknown>>,
+    rowsToValidate: Record<string, unknown>[],
   ): string[] {
     const errors: string[] = [];
     const normalizedFeatureSets = selectedAssets.map(asset => ({
       assetId: asset.id,
       modelName: asset.name,
-      features: this.normalizeFeatures(asset.inputFeatures || []),
+      features: this.normalizeSchemaFields(asset.inputSchemaFields || []),
     }));
 
     normalizedFeatureSets.forEach(item => {
       if (item.features.length === 0) {
         errors.push(
-          `Model "${item.modelName}" has no input schema metadata. Add "daimo:input_schema" (or "daimo:input_features") in asset metadata.`,
+          `Model "${item.modelName}" has no input schema metadata. Add "daimo:inputSchema" in asset metadata.`,
         );
       }
     });
@@ -1646,9 +2021,19 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     }
 
     const reference = normalizedFeatureSets[0];
-    const referenceSignature = this.featuresSignature(reference.features);
+    const selectedRequestShapes = new Set(selectedAssets.map(asset => asset.requestShape || 'single'));
+    if (selectedRequestShapes.size > 1) {
+      errors.push('Request shape mismatch: selected models must all use the same daimo:requestShape.');
+    }
+
+    const selectedBenchmarkModelTypes = new Set(selectedAssets.map(asset => asset.benchmarkModelType || 'output'));
+    if (selectedBenchmarkModelTypes.size > 1) {
+      errors.push('Benchmark model type mismatch: selected models must all be output models or metric/evaluator models.');
+    }
+
+    const referenceSignature = this.schemaFieldsSignature(reference.features);
     normalizedFeatureSets.slice(1).forEach(item => {
-      const currentSignature = this.featuresSignature(item.features);
+      const currentSignature = this.schemaFieldsSignature(item.features);
       if (currentSignature !== referenceSignature) {
         errors.push(
           `Schema mismatch: "${item.modelName}" is not compatible with "${reference.modelName}". Selected models must share the same input feature contract.`,
@@ -1660,10 +2045,21 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
       return errors;
     }
 
+    if (this.selectedMetrics.length === 0) {
+      errors.push('Select at least one benchmark metric.');
+      return errors;
+    }
+
+    const comparableTask = this.detectComparableTask(selectedAssets);
+    if (!selectedAssets.every(asset => this.isMetricBenchmarkModel(asset)) && comparableTask === 'unsupported') {
+      errors.push('Local benchmark metrics are only available for classification or regression output models.');
+      return errors;
+    }
+
     for (let index = 0; index < rowsToValidate.length; index += 1) {
       const row = rowsToValidate[index];
       const payload = this.resolveInputPayload(row);
-      errors.push(...this.validatePayloadAgainstFeatures(payload, reference.features, index + 1));
+      errors.push(...this.validatePayloadAgainstSchemaFields(payload, reference.features, index + 1));
 
       if (errors.length >= 25) {
         break;
@@ -1673,9 +2069,9 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     return errors;
   }
 
-  private normalizeFeatures(features: InputFeatureSpec[]): InputFeatureSpec[] {
+  private normalizeSchemaFields(features: InputSchemaFieldSpec[]): InputSchemaFieldSpec[] {
     const seen = new Set<string>();
-    const normalized: InputFeatureSpec[] = [];
+    const normalized: InputSchemaFieldSpec[] = [];
 
     features.forEach(feature => {
       const name = (feature.name || '').trim();
@@ -1703,7 +2099,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     return normalized.sort((left, right) => left.name.localeCompare(right.name));
   }
 
-  private featuresSignature(features: InputFeatureSpec[]): string {
+  private schemaFieldsSignature(features: InputSchemaFieldSpec[]): string {
     return features
       .map(feature => `${feature.name.toLowerCase()}|${this.normalizeSchemaType(feature.type)}|${feature.required ? '1' : '0'}`)
       .sort()
@@ -1724,7 +2120,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     return normalized;
   }
 
-  private validatePayloadAgainstFeatures(payload: unknown, features: InputFeatureSpec[], rowIndex: number): string[] {
+  private validatePayloadAgainstSchemaFields(payload: unknown, features: InputSchemaFieldSpec[], rowIndex: number): string[] {
     const errors: string[] = [];
     if (!this.isRecord(payload)) {
       return [`Dataset row #${rowIndex}: payload must be a JSON object after applying input path.`];
@@ -1824,6 +2220,317 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     return typeof value;
   }
 
+  private calculateLocalMetrics(
+    asset: ExecutableAsset,
+    rows: Record<string, unknown>[],
+    outputs: unknown[],
+  ): Record<string, number> {
+    const task = this.detectComparableTask([asset]);
+    if (task === 'classification') {
+      return this.calculateClassificationMetrics(rows, outputs);
+    }
+    if (task === 'regression') {
+      return this.calculateRegressionMetrics(rows, outputs);
+    }
+    return {};
+  }
+
+  private calculateClassificationMetrics(rows: Record<string, unknown>[], outputs: unknown[]): Record<string, number> {
+    const pairs = rows
+      .map((row, index) => ({
+        actual: this.normalizeClassValue(this.extractExpectedValue(row)),
+        predicted: this.normalizeClassValue(this.extractPredictedValue(outputs[index])),
+      }))
+      .filter((pair): pair is { actual: string; predicted: string } => !!pair.actual && !!pair.predicted);
+
+    const metrics: Record<string, number> = {};
+    const accuracy = this.computeClassificationAccuracy(pairs);
+    const precision = this.computeMacroPrecision(pairs);
+    const recall = this.computeMacroRecall(pairs);
+    const f1 = precision + recall === 0 ? 0 : (2 * precision * recall) / (precision + recall);
+
+    this.selectedMetrics.forEach(metric => {
+      switch (this.normalizeMetricName(metric)) {
+        case 'accuracy':
+          metrics[metric] = accuracy;
+          break;
+        case 'precision':
+          metrics[metric] = precision;
+          break;
+        case 'recall':
+          metrics[metric] = recall;
+          break;
+        case 'f1':
+          metrics[metric] = f1;
+          break;
+      }
+    });
+
+    return metrics;
+  }
+
+  private calculateRegressionMetrics(rows: Record<string, unknown>[], outputs: unknown[]): Record<string, number> {
+    const pairs = rows
+      .map((row, index) => ({
+        actual: this.readNumericValue(this.extractExpectedValue(row)),
+        predicted: this.readNumericValue(this.extractPredictedValue(outputs[index])),
+      }))
+      .filter(pair => Number.isFinite(pair.actual) && Number.isFinite(pair.predicted));
+
+    const metrics: Record<string, number> = {};
+    const mae = pairs.length === 0
+      ? 0
+      : pairs.reduce((sum, pair) => sum + Math.abs(pair.actual - pair.predicted), 0) / pairs.length;
+    const mse = pairs.length === 0
+      ? 0
+      : pairs.reduce((sum, pair) => {
+        const diff = pair.actual - pair.predicted;
+        return sum + diff * diff;
+      }, 0) / pairs.length;
+    const rmse = Math.sqrt(mse);
+    const r2 = this.computeR2(pairs);
+
+    this.selectedMetrics.forEach(metric => {
+      switch (this.normalizeMetricName(metric)) {
+        case 'mae':
+          metrics[metric] = mae;
+          break;
+        case 'mse':
+          metrics[metric] = mse;
+          break;
+        case 'rmse':
+          metrics[metric] = rmse;
+          break;
+        case 'r2':
+          metrics[metric] = r2;
+          break;
+      }
+    });
+
+    return metrics;
+  }
+
+  private extractExpectedValue(row: Record<string, unknown>): unknown {
+    const mapped = this.expectedPath.trim() ? this.getValueAtPath(row, this.expectedPath) : undefined;
+    if (mapped !== undefined) {
+      return mapped;
+    }
+
+    return this.findComparableValue(row, ['label', 'target', 'expected', 'expected_label', 'ground_truth', 'groundTruth', 'actual', 'y', 'value']);
+  }
+
+  private extractPredictedValue(output: unknown): unknown {
+    if (this.predictionPath.trim()) {
+      const mapped = this.getValueAtPath(output, this.predictionPath);
+      if (mapped !== undefined) {
+        return mapped;
+      }
+    }
+
+    if (Array.isArray(output)) {
+      for (const item of output) {
+        const value = this.extractPredictedValue(item);
+        if (value !== undefined && value !== null && value !== '') {
+          return value;
+        }
+      }
+      return undefined;
+    }
+
+    if (!this.isRecord(output)) {
+      return output;
+    }
+
+    return this.findComparableValue(output, ['prediction', 'label', 'target', 'category', 'class', 'decision', 'result', 'value', 'score']);
+  }
+
+  private findComparableValue(record: unknown, keys: string[]): unknown {
+    if (!this.isRecord(record)) {
+      return undefined;
+    }
+
+    for (const key of keys) {
+      const value = record[key];
+      if (value !== undefined && value !== null && value !== '') {
+        return value;
+      }
+    }
+
+    return undefined;
+  }
+
+  private normalizeClassValue(value: unknown): string | null {
+    if (value === undefined || value === null || value === '' || typeof value === 'object') {
+      return null;
+    }
+    return String(value).trim().toLowerCase();
+  }
+
+  private computeClassificationAccuracy(pairs: { actual: string; predicted: string }[]): number {
+    if (pairs.length === 0) {
+      return 0;
+    }
+    return pairs.filter(pair => pair.actual === pair.predicted).length / pairs.length;
+  }
+
+  private computeMacroPrecision(pairs: { actual: string; predicted: string }[]): number {
+    const labels = this.collectDistinctLabels(pairs);
+    if (labels.length === 0) {
+      return 0;
+    }
+    return labels.reduce((sum, label) => {
+      const tp = pairs.filter(pair => pair.actual === label && pair.predicted === label).length;
+      const fp = pairs.filter(pair => pair.actual !== label && pair.predicted === label).length;
+      return sum + (tp + fp === 0 ? 0 : tp / (tp + fp));
+    }, 0) / labels.length;
+  }
+
+  private computeMacroRecall(pairs: { actual: string; predicted: string }[]): number {
+    const labels = this.collectDistinctLabels(pairs);
+    if (labels.length === 0) {
+      return 0;
+    }
+    return labels.reduce((sum, label) => {
+      const tp = pairs.filter(pair => pair.actual === label && pair.predicted === label).length;
+      const fn = pairs.filter(pair => pair.actual === label && pair.predicted !== label).length;
+      return sum + (tp + fn === 0 ? 0 : tp / (tp + fn));
+    }, 0) / labels.length;
+  }
+
+  private collectDistinctLabels(pairs: { actual: string; predicted: string }[]): string[] {
+    return Array.from(new Set(pairs.flatMap(pair => [pair.actual, pair.predicted]).filter(Boolean)));
+  }
+
+  private computeR2(pairs: { actual: number; predicted: number }[]): number {
+    if (pairs.length === 0) {
+      return 0;
+    }
+    const meanActual = pairs.reduce((sum, pair) => sum + pair.actual, 0) / pairs.length;
+    const ssRes = pairs.reduce((sum, pair) => sum + ((pair.actual - pair.predicted) ** 2), 0);
+    const ssTot = pairs.reduce((sum, pair) => sum + ((pair.actual - meanActual) ** 2), 0);
+    if (ssTot === 0) {
+      return ssRes === 0 ? 1 : 0;
+    }
+    return 1 - (ssRes / ssTot);
+  }
+
+  private readNumericValue(value: unknown): number {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : Number.NaN;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : Number.NaN;
+  }
+
+  private extractMetricModelMetrics(output: unknown): Record<string, number> {
+    const source = this.findMetricOutputSource(output);
+    const metrics: Record<string, number> = {};
+    this.selectedMetrics.forEach(metric => {
+      const value = this.readMetricOutputValue(source, metric);
+      if (Number.isFinite(value)) {
+        metrics[metric] = value;
+      }
+    });
+    return metrics;
+  }
+
+  private findMetricOutputSource(output: unknown): unknown {
+    if (Array.isArray(output)) {
+      return output.length === 1 ? this.findMetricOutputSource(output[0]) : output;
+    }
+    if (typeof output === 'string') {
+      const trimmed = output.trim();
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+          return this.findMetricOutputSource(JSON.parse(trimmed));
+        } catch {
+          return output;
+        }
+      }
+    }
+    if (!this.isRecord(output)) {
+      return output;
+    }
+    for (const key of ['metrics', 'scores', 'evaluation', 'benchmark']) {
+      if (output[key] !== undefined) {
+        return output[key];
+      }
+    }
+    for (const key of ['result', 'results', 'data', 'body']) {
+      if (output[key] !== undefined) {
+        return this.findMetricOutputSource(output[key]);
+      }
+    }
+    return output;
+  }
+
+  private readMetricOutputValue(source: unknown, metric: string): number {
+    if (source === undefined || source === null) {
+      return Number.NaN;
+    }
+    if (Array.isArray(source)) {
+      for (const item of source) {
+        const value = this.readMetricOutputValue(item, metric);
+        if (Number.isFinite(value)) {
+          return value;
+        }
+      }
+      return Number.NaN;
+    }
+    if (!this.isRecord(source)) {
+      return this.readNumericValue(source);
+    }
+    const expectedKey = this.normalizeMetricName(metric);
+    for (const [key, value] of Object.entries(source)) {
+      if (this.normalizeMetricName(key) === expectedKey) {
+        return this.readMetricNumericValue(value);
+      }
+    }
+    const metricName = source['metric'] || source['name'] || source['key'];
+    if (typeof metricName === 'string' && this.normalizeMetricName(metricName) === expectedKey) {
+      return this.readMetricNumericValue(source['value'] ?? source['score'] ?? source['result']);
+    }
+    return Number.NaN;
+  }
+
+  private readMetricNumericValue(value: unknown): number {
+    const direct = this.readNumericValue(value);
+    if (Number.isFinite(direct)) {
+      return direct;
+    }
+    if (!this.isRecord(value)) {
+      return Number.NaN;
+    }
+    return this.readNumericValue(value['value'] ?? value['score'] ?? value['result']);
+  }
+
+  private normalizeMetricName(value: string): string {
+    const normalized = String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+    return normalized === 'f1score' ? 'f1' : normalized;
+  }
+
+  private uniqueStrings(values: string[]): string[] {
+    return Array.from(new Set(values.map(value => value.trim()).filter(value => value.length > 0)));
+  }
+
+  private findMetricValue(metrics: Record<string, number>, metric: string): number {
+    const normalized = this.normalizeMetricName(metric);
+    for (const [key, value] of Object.entries(metrics)) {
+      if (this.normalizeMetricName(key) === normalized) {
+        return value;
+      }
+    }
+    return Number.NaN;
+  }
+
+  private metricAsPercent(metrics: Record<string, number>, metric: string): number | null {
+    const value = this.findMetricValue(metrics, metric);
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+    return value <= 1 ? value * 100 : value;
+  }
+
   private rankResults(raw: BenchmarkAccumulator[]): BenchmarkResultRow[] {
     if (raw.length === 0) {
       return [];
@@ -1832,19 +2539,35 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     const latencies = raw.map(row => row.averageLatencyMs);
     const minLatency = Math.min(...latencies);
     const maxLatency = Math.max(...latencies);
-    const accuracyMode = raw.some(row => row.accuracyPercent !== null);
+    const rankingMetric = this.rankingMetric === 'score' ? this.getDefaultRankingMetric() : this.rankingMetric;
+    const lowerIsBetter = this.isLowerBetterMetric(rankingMetric);
+    const metricValues = raw
+      .map(row => this.getSortableMetricValue(row, rankingMetric))
+      .filter((value): value is number => value !== null);
+    const minMetric = metricValues.length ? Math.min(...metricValues) : 0;
+    const maxMetric = metricValues.length ? Math.max(...metricValues) : 1;
 
     const withScore = raw
       .map(row => {
         const latencyScore = this.normalizeInverseScore(row.averageLatencyMs, minLatency, maxLatency);
-        const score =
-          accuracyMode && row.accuracyPercent !== null
-            ? row.accuracyPercent * 0.6 + row.successRate * 0.25 + latencyScore * 0.15
-            : row.successRate * 0.7 + latencyScore * 0.3;
+        const metricValue = this.getSortableMetricValue(row, rankingMetric);
+        const metricScore = metricValue === null
+          ? 0
+          : lowerIsBetter
+            ? this.normalizeInverseScore(metricValue, minMetric, maxMetric)
+            : this.normalizeDirectScore(metricValue, minMetric, maxMetric);
+        const score = metricValues.length > 0
+          ? metricScore * 0.7 + row.successRate * 0.2 + latencyScore * 0.1
+          : row.successRate * 0.7 + latencyScore * 0.3;
 
         return { ...row, score };
       })
       .sort((left, right) => {
+        const leftMetric = this.getSortableMetricValue(left, rankingMetric);
+        const rightMetric = this.getSortableMetricValue(right, rankingMetric);
+        if (leftMetric !== null && rightMetric !== null && leftMetric !== rightMetric) {
+          return lowerIsBetter ? leftMetric - rightMetric : rightMetric - leftMetric;
+        }
         if (right.score !== left.score) {
           return right.score - left.score;
         }
@@ -1858,6 +2581,7 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
       rank: index + 1,
       assetId: row.assetId,
       modelName: row.modelName,
+      benchmarkModelType: row.benchmarkModelType,
       sampleCount: row.sampleCount,
       successCount: row.successCount,
       errorCount: row.errorCount,
@@ -1866,8 +2590,37 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
       p95LatencyMs: row.p95LatencyMs,
       throughputRps: row.throughputRps,
       accuracyPercent: row.accuracyPercent,
+      metrics: row.metrics,
       score: row.score,
     }));
+  }
+
+  private getDefaultRankingMetric(): string {
+    return this.selectedMetrics[0] || 'successRate';
+  }
+
+  private getSortableMetricValue(row: BenchmarkAccumulator, metric: string): number | null {
+    switch (metric) {
+      case 'successRate':
+        return row.successRate;
+      case 'averageLatencyMs':
+        return row.averageLatencyMs;
+      case 'p95LatencyMs':
+        return row.p95LatencyMs;
+      case 'throughputRps':
+        return row.throughputRps;
+      case 'score':
+        return 'score' in row && typeof (row as BenchmarkResultRow).score === 'number' ? (row as BenchmarkResultRow).score : null;
+      default: {
+        const value = this.findMetricValue(row.metrics || {}, metric);
+        return Number.isFinite(value) ? value : null;
+      }
+    }
+  }
+
+  private isLowerBetterMetric(metric: string): boolean {
+    const normalized = this.normalizeMetricName(metric);
+    return this.lowerIsBetterMetrics.some(candidate => this.normalizeMetricName(candidate) === normalized);
   }
 
   private normalizeInverseScore(value: number, min: number, max: number): number {
@@ -1875,6 +2628,13 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
       return 100;
     }
     return ((max - value) / (max - min)) * 100;
+  }
+
+  private normalizeDirectScore(value: number, min: number, max: number): number {
+    if (Math.abs(max - min) < 1e-9) {
+      return 100;
+    }
+    return ((value - min) / (max - min)) * 100;
   }
 
   private average(values: number[]): number {
@@ -1893,12 +2653,32 @@ export class ModelBenchmarkingComponent implements OnInit, OnDestroy {
     return sorted[index];
   }
 
-  private normalizeRows(rows: unknown[]): Array<Record<string, unknown>> {
+  private normalizeRows(rows: unknown[]): Record<string, unknown>[] {
     return rows.map(row => (this.isRecord(row) ? row : { value: row }));
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
+  private extractDaimoMetadata(source: Record<string, unknown>): Record<string, unknown> {
+    const assetData = this.isRecord(source['assetData'])
+      ? source['assetData']
+      : this.isRecord(source['edc:assetData'])
+        ? source['edc:assetData']
+        : this.isRecord(source['https://w3id.org/edc/v0.0.1/ns/assetData'])
+          ? source['https://w3id.org/edc/v0.0.1/ns/assetData']
+          : {};
+
+    if (this.isRecord(assetData['JS_DAIMO_Model'])) {
+      return assetData['JS_DAIMO_Model'];
+    }
+
+    if (this.isRecord(assetData['JS_DAIMO_Dataset'])) {
+      return assetData['JS_DAIMO_Dataset'];
+    }
+
+    return {};
   }
 
   private toCsvValue(value: unknown): string {

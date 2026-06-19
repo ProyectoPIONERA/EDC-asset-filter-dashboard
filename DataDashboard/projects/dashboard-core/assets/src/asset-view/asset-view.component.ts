@@ -30,64 +30,67 @@ import { AssetCreateComponent } from '../asset-create/asset-create.component';
 import { AssetCardComponent } from '../asset-card/asset-card.component';
 
 const DAIMO_FILTER_KEYS = [
-  'daimo:short_description',
-  'https://pionera.ai/edc/daimo#short_description',
-  'daimo:model_version',
-  'https://pionera.ai/edc/daimo#model_version',
-  'daimo:pipeline_tag',
-  'https://pionera.ai/edc/daimo#pipeline_tag',
+  'daimo:shortDescription',
+  'https://w3id.org/pionera/daimo#shortDescription',
+  'daimo:modelVersion',
+  'https://w3id.org/pionera/daimo#modelVersion',
+  'daimo:taskCategory',
+  'https://w3id.org/pionera/daimo#taskCategory',
+  'daimo:taskType',
+  'https://w3id.org/pionera/daimo#taskType',
   'daimo:modality',
-  'https://pionera.ai/edc/daimo#modality',
-  'daimo:tags',
-  'https://pionera.ai/edc/daimo#tags',
-  'daimo:license',
-  'https://pionera.ai/edc/daimo#license',
-  'daimo:maturity_status',
-  'https://pionera.ai/edc/daimo#maturity_status',
-  'daimo:library_name',
-  'https://pionera.ai/edc/daimo#library_name',
-  'daimo:language',
-  'https://pionera.ai/edc/daimo#language',
-  'daimo:architecture_family',
-  'https://pionera.ai/edc/daimo#architecture_family',
-  'daimo:base_model',
-  'https://pionera.ai/edc/daimo#base_model',
-  'daimo:format',
-  'https://pionera.ai/edc/daimo#format',
-  'daimo:inference_path',
-  'https://pionera.ai/edc/daimo#inference_path',
-  'daimo:parameter_count',
-  'https://pionera.ai/edc/daimo#parameter_count',
-  'daimo:artifact_size_mb',
-  'https://pionera.ai/edc/daimo#artifact_size_mb',
+  'https://w3id.org/pionera/daimo#modality',
+  'daimo:subtask',
+  'https://w3id.org/pionera/daimo#subtask',
+  'daimo:endpointBehavior',
+  'https://w3id.org/pionera/daimo#endpointBehavior',
+  'daimo:requestShape',
+  'https://w3id.org/pionera/daimo#requestShape',
+  'dcat:keyword',
+  'http://www.w3.org/ns/dcat#keyword',
+  'dct:license',
+  'dcterms:license',
+  'http://purl.org/dc/terms/license',
+  'daimo:maturityStatus',
+  'https://w3id.org/pionera/daimo#maturityStatus',
+  'daimo:libraryName',
+  'https://w3id.org/pionera/daimo#libraryName',
+  'dct:language',
+  'dcterms:language',
+  'http://purl.org/dc/terms/language',
+  'dct:format',
+  'dcterms:format',
+  'http://purl.org/dc/terms/format',
+  'daimo:inferencePath',
+  'https://w3id.org/pionera/daimo#inferencePath',
+  'daimo:parameterCount',
+  'https://w3id.org/pionera/daimo#parameterCount',
+  'daimo:artifactSizeMb',
+  'https://w3id.org/pionera/daimo#artifactSizeMb',
   'daimo:quantization',
-  'https://pionera.ai/edc/daimo#quantization',
-  'daimo:performance_metric',
-  'https://pionera.ai/edc/daimo#performance_metric',
-  'daimo:performance_dataset',
-  'https://pionera.ai/edc/daimo#performance_dataset',
-  'daimo:datasets',
-  'https://pionera.ai/edc/daimo#datasets',
-  'daimo:performance_report',
-  'https://pionera.ai/edc/daimo#performance_report',
-  'daimo:intended_use',
-  'https://pionera.ai/edc/daimo#intended_use',
+  'https://w3id.org/pionera/daimo#quantization',
+  'daimo:metrics',
+  'https://w3id.org/pionera/daimo#metrics',
+  'daimo:performanceReport',
+  'https://w3id.org/pionera/daimo#performanceReport',
+  'daimo:intendedUse',
+  'https://w3id.org/pionera/daimo#intendedUse',
   'daimo:limitations',
-  'https://pionera.ai/edc/daimo#limitations',
-  'daimo:pii_safe',
-  'https://pionera.ai/edc/daimo#pii_safe',
-  'daimo:regulated_domain',
-  'https://pionera.ai/edc/daimo#regulated_domain',
-  'daimo:human_in_the_loop_required',
-  'https://pionera.ai/edc/daimo#human_in_the_loop_required',
-  'daimo:latency_p95_ms',
-  'https://pionera.ai/edc/daimo#latency_p95_ms',
-  'daimo:throughput_rps',
-  'https://pionera.ai/edc/daimo#throughput_rps',
-  'daimo:rate_limits',
-  'https://pionera.ai/edc/daimo#rate_limits',
-  'daimo:availability_tier',
-  'https://pionera.ai/edc/daimo#availability_tier',
+  'https://w3id.org/pionera/daimo#limitations',
+  'daimo:piiSafe',
+  'https://w3id.org/pionera/daimo#piiSafe',
+  'daimo:regulatedDomain',
+  'https://w3id.org/pionera/daimo#regulatedDomain',
+  'daimo:humanInTheLoopRequired',
+  'https://w3id.org/pionera/daimo#humanInTheLoopRequired',
+  'daimo:latencyP95Ms',
+  'https://w3id.org/pionera/daimo#latencyP95Ms',
+  'daimo:throughputRps',
+  'https://w3id.org/pionera/daimo#throughputRps',
+  'daimo:rateLimits',
+  'https://w3id.org/pionera/daimo#rateLimits',
+  'daimo:availabilityTier',
+  'https://w3id.org/pionera/daimo#availabilityTier',
 ];
 
 @Component({
@@ -217,10 +220,24 @@ export class AssetViewComponent implements OnInit, OnDestroy {
   private getMlMetadataValues(asset: Asset): string[] {
     const properties = asset.properties as unknown as Record<string, unknown>;
     const values: string[] = [];
+    const daimoMetadataNodes = this.getDaimoMetadataNodes(properties);
     DAIMO_FILTER_KEYS.forEach(key => {
       values.push(...this.extractStrings(properties[key]));
+      daimoMetadataNodes.forEach(node => values.push(...this.extractStrings(node[key])));
     });
     return values;
+  }
+
+  private getDaimoMetadataNodes(properties: Record<string, unknown>): Record<string, unknown>[] {
+    const assetData = properties['assetData'];
+    if (!assetData || typeof assetData !== 'object' || Array.isArray(assetData)) {
+      return [];
+    }
+
+    const assetDataRecord = assetData as Record<string, unknown>;
+    return ['JS_DAIMO_Model', 'JS_DAIMO_Dataset']
+      .map(nodeName => assetDataRecord[nodeName])
+      .filter((node): node is Record<string, unknown> => !!node && typeof node === 'object' && !Array.isArray(node));
   }
 
   private extractStrings(value: unknown): string[] {

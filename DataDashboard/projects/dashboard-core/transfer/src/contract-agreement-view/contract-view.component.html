@@ -36,7 +36,7 @@
     (pageItems)="paginationEvent($event)"
     class="shadow-xl rounded-2xl bg-base-300 [&_button:hover]:bg-base-100 [&_.join>button]:first:rounded-l-2xl [&_.join>button]:last:rounded-r-2xl"
   ></lib-pagination>
-  @if ((pairs$ | async)?.length == 0) {
+  @if ((pairs$ | async)?.length === 0) {
     <div
       [ngClass]="initialized ? 'opacity-100' : 'opacity-0'"
       class="tooltip tooltip-open tooltip-primary tooltip-right absolute top-24 -left-4 transition-opacity duration-1000 ease-linear"
@@ -56,7 +56,7 @@
       (transferEvent)="openTransferDialog(pair)"
     ></lib-contract-agreement-card>
   }
-  @if ((pairs$ | async)?.length == 0) {
+  @if ((pairs$ | async)?.length === 0) {
     <div class="skeleton flex justify-center items-center h-72 shadow-xl rounded-2xl">
       @if (!initialized) {
         <span class="loading loading-bars loading-lg opacity-75 text-primary"></span>

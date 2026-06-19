@@ -48,7 +48,7 @@
       (deleteEvent)="deleteAsset($event)"
     ></lib-asset-card>
   }
-  @if ((assets$ | async)?.length == 0) {
+  @if ((assets$ | async)?.length === 0) {
     <div class="skeleton flex justify-center items-center h-72 shadow-xl rounded-2xl">
       @if (!fetched) {
         <span class="loading loading-bars loading-lg opacity-75 text-primary"></span>

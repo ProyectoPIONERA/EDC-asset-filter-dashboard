@@ -29,7 +29,7 @@
 
       @if (availableTasks.length > 0) {
         <details class="collapse collapse-arrow bg-base-200" open>
-          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Tasks</summary>
+          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Task Category</summary>
           <div class="collapse-content pt-0 space-y-2">
             @for (task of availableTasks; track task) {
               <label class="label cursor-pointer justify-start gap-2 py-0.5">
@@ -46,38 +46,76 @@
         </details>
       }
 
-      @if (availableLicenses.length > 0) {
-        <details class="collapse collapse-arrow bg-base-200">
-          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Licenses</summary>
+      @if (availableTaskTypes.length > 0) {
+        <details class="collapse collapse-arrow bg-base-200" open>
+          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Task Type</summary>
           <div class="collapse-content pt-0 space-y-2">
-            @for (license of availableLicenses; track license) {
+            @for (taskType of availableTaskTypes; track taskType) {
               <label class="label cursor-pointer justify-start gap-2 py-0.5">
                 <input
                   type="checkbox"
                   class="checkbox checkbox-xs"
-                  [checked]="selectedLicenses.includes(license)"
-                  (change)="toggleLicense(license, $any($event.target).checked)"
+                  [checked]="selectedTaskTypes.includes(taskType)"
+                  (change)="toggleTaskType(taskType, $any($event.target).checked)"
                 />
-                <span class="label-text text-sm">{{ license }}</span>
+                <span class="label-text text-sm">{{ taskType }}</span>
               </label>
             }
           </div>
         </details>
       }
 
-      @if (availableLanguages.length > 0) {
+      @if (availableModalities.length > 0) {
         <details class="collapse collapse-arrow bg-base-200">
-          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Languages</summary>
+          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Modality</summary>
           <div class="collapse-content pt-0 space-y-2">
-            @for (language of availableLanguages; track language) {
+            @for (modality of availableModalities; track modality) {
               <label class="label cursor-pointer justify-start gap-2 py-0.5">
                 <input
                   type="checkbox"
                   class="checkbox checkbox-xs"
-                  [checked]="selectedLanguages.includes(language)"
-                  (change)="toggleLanguage(language, $any($event.target).checked)"
+                  [checked]="selectedModalities.includes(modality)"
+                  (change)="toggleModality(modality, $any($event.target).checked)"
                 />
-                <span class="label-text text-sm">{{ language }}</span>
+                <span class="label-text text-sm">{{ modality }}</span>
+              </label>
+            }
+          </div>
+        </details>
+      }
+
+      @if (availableSubtasks.length > 0) {
+        <details class="collapse collapse-arrow bg-base-200">
+          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Subtask</summary>
+          <div class="collapse-content pt-0 space-y-2">
+            @for (subtask of availableSubtasks; track subtask) {
+              <label class="label cursor-pointer justify-start gap-2 py-0.5">
+                <input
+                  type="checkbox"
+                  class="checkbox checkbox-xs"
+                  [checked]="selectedSubtasks.includes(subtask)"
+                  (change)="toggleSubtask(subtask, $any($event.target).checked)"
+                />
+                <span class="label-text text-sm">{{ subtask }}</span>
+              </label>
+            }
+          </div>
+        </details>
+      }
+
+      @if (availableEndpointBehaviors.length > 0) {
+        <details class="collapse collapse-arrow bg-base-200" open>
+          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Endpoint Behavior</summary>
+          <div class="collapse-content pt-0 space-y-2">
+            @for (endpointBehavior of availableEndpointBehaviors; track endpointBehavior) {
+              <label class="label cursor-pointer justify-start gap-2 py-0.5">
+                <input
+                  type="checkbox"
+                  class="checkbox checkbox-xs"
+                  [checked]="selectedEndpointBehaviors.includes(endpointBehavior)"
+                  (change)="toggleEndpointBehavior(endpointBehavior, $any($event.target).checked)"
+                />
+                <span class="label-text text-sm">{{ endpointBehavior }}</span>
               </label>
             }
           </div>
@@ -103,19 +141,57 @@
         </details>
       }
 
-      @if (availableFrameworks.length > 0) {
+      @if (availableLanguages.length > 0) {
         <details class="collapse collapse-arrow bg-base-200">
-          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Frameworks</summary>
+          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Language</summary>
           <div class="collapse-content pt-0 space-y-2">
-            @for (framework of availableFrameworks; track framework) {
+            @for (language of availableLanguages; track language) {
               <label class="label cursor-pointer justify-start gap-2 py-0.5">
                 <input
                   type="checkbox"
                   class="checkbox checkbox-xs"
-                  [checked]="selectedFrameworks.includes(framework)"
-                  (change)="toggleFramework(framework, $any($event.target).checked)"
+                  [checked]="selectedLanguages.includes(language)"
+                  (change)="toggleLanguage(language, $any($event.target).checked)"
                 />
-                <span class="label-text text-sm">{{ framework }}</span>
+                <span class="label-text text-sm">{{ language }}</span>
+              </label>
+            }
+          </div>
+        </details>
+      }
+
+      @if (availableLicenses.length > 0) {
+        <details class="collapse collapse-arrow bg-base-200">
+          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">License</summary>
+          <div class="collapse-content pt-0 space-y-2">
+            @for (license of availableLicenses; track license) {
+              <label class="label cursor-pointer justify-start gap-2 py-0.5">
+                <input
+                  type="checkbox"
+                  class="checkbox checkbox-xs"
+                  [checked]="selectedLicenses.includes(license)"
+                  (change)="toggleLicense(license, $any($event.target).checked)"
+                />
+                <span class="label-text text-sm">{{ license }}</span>
+              </label>
+            }
+          </div>
+        </details>
+      }
+
+      @if (availableStorageTypes.length > 0) {
+        <details class="collapse collapse-arrow bg-base-200" open>
+          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Storage Type</summary>
+          <div class="collapse-content pt-0 space-y-2">
+            @for (storageType of availableStorageTypes; track storageType) {
+              <label class="label cursor-pointer justify-start gap-2 py-0.5">
+                <input
+                  type="checkbox"
+                  class="checkbox checkbox-xs"
+                  [checked]="selectedStorageTypes.includes(storageType)"
+                  (change)="toggleStorageType(storageType, $any($event.target).checked)"
+                />
+                <span class="label-text text-sm">{{ storageType }}</span>
               </label>
             }
           </div>
@@ -124,7 +200,7 @@
 
       @if (availableFormats.length > 0) {
         <details class="collapse collapse-arrow bg-base-200" open>
-          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Formats</summary>
+          <summary class="collapse-title py-2 min-h-0 text-sm font-semibold">Format</summary>
           <div class="collapse-content pt-0 space-y-2">
             @for (format of availableFormats; track format) {
               <label class="label cursor-pointer justify-start gap-2 py-0.5">
@@ -244,6 +320,9 @@
                 <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-xs mt-3 opacity-85">
                   <div><b>Owner:</b> {{ asset.owner || '-' }}</div>
                   <div><b>Content:</b> {{ asset.contentType || '-' }}</div>
+                  <div><b>Task:</b> {{ (asset.tasks || [])[0] || '-' }}</div>
+                  <div><b>Type:</b> {{ (asset.taskTypes || [])[0] || '-' }}</div>
+                  <div><b>Library:</b> {{ (asset.libraries || [])[0] || '-' }}</div>
                   <div><b>Format:</b> {{ asset.format || '-' }}</div>
                   <div><b>Storage:</b> {{ asset.storageType || '-' }}</div>
                 </div>

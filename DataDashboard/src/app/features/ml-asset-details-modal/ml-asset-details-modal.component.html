@@ -29,8 +29,13 @@
           <div class="card bg-base-200 shadow-sm">
             <div class="card-body p-4">
               <div><b>Tasks:</b> {{ (asset.tasks || []).join(', ') || '-' }}</div>
+              <div><b>Task Types:</b> {{ (asset.taskTypes || []).join(', ') || '-' }}</div>
+              <div><b>Subtasks:</b> {{ (asset.subtasks || []).join(', ') || '-' }}</div>
+              <div><b>Modalities:</b> {{ (asset.modalities || []).join(', ') || '-' }}</div>
+              <div><b>Endpoint Behavior:</b> {{ (asset.endpointBehaviors || []).join(', ') || '-' }}</div>
               <div><b>Libraries:</b> {{ (asset.libraries || []).join(', ') || '-' }}</div>
-              <div><b>Frameworks:</b> {{ (asset.frameworks || []).join(', ') || '-' }}</div>
+              <div><b>Licenses:</b> {{ (asset.licenses || []).join(', ') || '-' }}</div>
+              <div><b>Languages:</b> {{ (asset.languages || []).join(', ') || '-' }}</div>
               <div><b>Keywords:</b> {{ (asset.keywords || []).join(', ') || '-' }}</div>
             </div>
           </div>

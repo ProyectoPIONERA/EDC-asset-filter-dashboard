@@ -18,11 +18,14 @@
   >
     @if (filteredOptions.length > 0) {
       @for (option of filteredOptions; track option) {
-        <label class="label cursor-pointer w-full flex items-center mb-2" (click)="toggleItem(option)">
-          <input type="checkbox" class="checkbox checkbox-xs" [checked]="selectedOptions.has(option)" />
-          <span class="label-text text-left w-full truncate pl-4 -ml-2" (click)="$event.stopPropagation()">{{
-            displayFn(option)
-          }}</span>
+        <label class="label cursor-pointer w-full flex items-center mb-2">
+          <input
+            type="checkbox"
+            class="checkbox checkbox-xs"
+            [checked]="selectedOptions.has(option)"
+            (change)="toggleItem(option)"
+          />
+          <span class="label-text text-left w-full truncate pl-4 -ml-2">{{ displayFn(option) }}</span>
         </label>
       }
     } @else {

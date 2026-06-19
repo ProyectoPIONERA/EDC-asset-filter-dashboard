@@ -34,13 +34,12 @@
   </div>
   @if (showTimer) {
     <div
-      (click)="close()"
       class="radial-progress text-neutral hover:cursor-pointer"
       style="--size: calc(2rem + 10px); --thickness: 6px"
       [style]="'--value:' + countdown + ';'"
       role="progressbar"
     >
-      <button type="button" class="btn btn-circle btn-sm btn-neutral">
+      <button type="button" class="btn btn-circle btn-sm btn-neutral" (click)="close()">
         <span class="material-symbols-rounded !text-lg">close</span>
       </button>
     </div>

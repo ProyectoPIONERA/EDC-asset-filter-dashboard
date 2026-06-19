@@ -131,7 +131,7 @@ export class DashboardMlBrowserService {
     searchTerm?: string,
   ): Observable<MlGuiAsset[]> {
     const query = this.buildFilterQuery(filters, searchTerm);
-    const hasActiveFilterQuery = this.hasActiveExternalFilters(filters, searchTerm);
+    const hasServerFilterQuery = query !== 'profile=daimo';
     const url = query.length > 0 ? `${filterApiUrl}?${query}` : filterApiUrl;
 
     const body: Record<string, unknown> = {
@@ -150,7 +150,7 @@ export class DashboardMlBrowserService {
       .pipe(
         map(response => this.parseCatalogResponse(response, counterPartyAddress)),
         switchMap(assets => {
-          if (assets.length > 0 || hasActiveFilterQuery) {
+          if (assets.length > 0 || hasServerFilterQuery) {
             return of(assets);
           }
           // Fallback to management catalog request when filter endpoint returns empty base list.
@@ -272,21 +272,21 @@ export class DashboardMlBrowserService {
     const id = this.firstString(dataset['@id'], dataset['id']) || 'unknown';
     const name = this.firstString(dataset['name']) || id;
 
-    const daimoTags = dataset['https://pionera.ai/edc/daimo#tags'] || dataset['daimo:tags'];
-    const keywords = this.normalizeArray(daimoTags).map(value => String(value));
-    const licenses = this.readCatalogList(dataset, ['https://pionera.ai/edc/daimo#license', 'daimo:license']);
-    const languages = this.readCatalogList(dataset, ['https://pionera.ai/edc/daimo#language', 'daimo:language']);
+    const daimoMetadata = this.extractDaimoMetadata(dataset);
+    const metadataSources = [daimoMetadata, dataset];
 
-    const pipelineTag = this.firstString(
-      dataset['https://pionera.ai/edc/daimo#pipeline_tag'],
-      dataset['daimo:pipeline_tag'],
-    );
-    const libraryName = this.firstString(
-      dataset['https://pionera.ai/edc/daimo#library_name'],
-      dataset['daimo:library_name'],
-    );
+    const keywords = this.readFirstList(metadataSources, ['dcat:keyword', 'keywords']);
+    const licenses = this.readFirstList(metadataSources, ['dct:license', 'dcterms:license', 'http://purl.org/dc/terms/license', 'license']);
+    const languages = this.readFirstList(metadataSources, ['dct:language', 'dcterms:language', 'http://purl.org/dc/terms/language', 'language']);
 
-    const contentType = this.firstString(dataset['contenttype'], dataset['https://pionera.ai/edc/daimo#contenttype']);
+    const taskCategory = this.readFirstString(metadataSources, ['daimo:taskCategory', 'https://w3id.org/pionera/daimo#taskCategory', 'taskCategory']);
+    const taskType = this.readFirstString(metadataSources, ['daimo:taskType', 'https://w3id.org/pionera/daimo#taskType', 'taskType']);
+    const libraryName = this.readFirstString(metadataSources, ['daimo:libraryName', 'https://w3id.org/pionera/daimo#libraryName', 'libraryName']);
+    const subtasks = this.readFirstList(metadataSources, ['daimo:subtask', 'https://w3id.org/pionera/daimo#subtask', 'subtask']);
+    const modalities = this.readFirstList(metadataSources, ['daimo:modality', 'https://w3id.org/pionera/daimo#modality', 'modality']);
+    const endpointBehaviors = this.readFirstList(metadataSources, ['daimo:endpointBehavior', 'https://w3id.org/pionera/daimo#endpointBehavior', 'endpointBehavior']);
+
+    const contentType = this.firstString(dataset['contenttype']);
     const storageInfo = this.extractStorageInfoFromCatalogDataset(dataset);
     const transferFormat = this.extractTransferFormatFromCatalogDataset(dataset);
     const byteSize = this.extractDatasetByteSize(dataset);
@@ -308,11 +308,12 @@ export class DashboardMlBrowserService {
       keywords,
       licenses,
       languages,
-      tasks: pipelineTag ? [pipelineTag] : [],
-      subtasks: [],
-      algorithms: [],
+      tasks: taskCategory ? [taskCategory] : [],
+      taskTypes: taskType ? [taskType] : [],
+      subtasks,
+      modalities,
+      endpointBehaviors,
       libraries: libraryName ? [libraryName] : [],
-      frameworks: libraryName ? [libraryName] : [],
       modelType: '',
       storageType: storageInfo.storageType,
       fileName: storageInfo.fileName,
@@ -333,7 +334,8 @@ export class DashboardMlBrowserService {
     const properties = this.asRecord(asset['edc:properties'] || asset['properties']);
     const dataAddress = this.asRecord(asset['edc:dataAddress'] || asset['dataAddress']);
 
-    const sources: Array<Record<string, unknown>> = [properties, asset];
+    const daimoMetadata = this.extractDaimoMetadata(properties);
+    const sources: Record<string, unknown>[] = [daimoMetadata, properties, asset];
 
     const readText = (keys: string[], fallback = ''): string => {
       for (const source of sources) {
@@ -363,31 +365,31 @@ export class DashboardMlBrowserService {
     };
 
     const readListFromDaimo = (key: string): string[] =>
-      readList([`daimo:${key}`, `https://pionera.ai/edc/daimo#${key}`]);
+      readList([`daimo:${key}`, `https://w3id.org/pionera/daimo#${key}`, key]);
 
     const id = this.firstString(asset['@id'], asset['id']) || 'unknown-local';
     const name = readText(['name', 'asset:prop:name', 'dct:title'], id);
     const contentType = readText([
       'contenttype',
       'asset:prop:contenttype',
-      'daimo:contenttype',
-      'https://pionera.ai/edc/daimo#contenttype',
     ]);
 
     const version = readText(['version', 'asset:prop:version'], 'N/A');
     const explicitDescription = readText(['description', 'asset:prop:description', 'dcterms:description']);
     const shortDescription = readText(['shortDescription', 'asset:prop:shortDescription'], explicitDescription);
-    const task = readText(['daimo:pipeline_tag', 'pipeline_tag', 'https://pionera.ai/edc/daimo#pipeline_tag']);
-    const library = readText(['daimo:library_name', 'library_name', 'https://pionera.ai/edc/daimo#library_name']);
+    const task = readText(['daimo:taskCategory', 'taskCategory', 'https://w3id.org/pionera/daimo#taskCategory']);
+    const taskType = readText(['daimo:taskType', 'taskType', 'https://w3id.org/pionera/daimo#taskType']);
+    const library = readText(['daimo:libraryName', 'libraryName', 'https://w3id.org/pionera/daimo#libraryName']);
 
-    const keywords = readList(['daimo:tags', 'https://pionera.ai/edc/daimo#tags', 'dcat:keyword', 'asset:prop:keywords']);
-    const licenses = readListFromDaimo('license');
-    const languages = readListFromDaimo('language');
-    const tasks = [...(task ? [task] : []), ...readListFromDaimo('task')];
+    const keywords = readList(['dcat:keyword', 'keywords', 'asset:prop:keywords']);
+    const licenses = readList(['dct:license', 'dcterms:license', 'http://purl.org/dc/terms/license', 'license']);
+    const languages = readList(['dct:language', 'dcterms:language', 'http://purl.org/dc/terms/language', 'language']);
+    const tasks = [...(task ? [task] : [])];
+    const taskTypes = [...(taskType ? [taskType] : [])];
     const subtasks = readListFromDaimo('subtask');
-    const algorithms = readListFromDaimo('algorithm');
-    const libraries = [...(library ? [library] : []), ...readListFromDaimo('library')];
-    const frameworks = readListFromDaimo('framework');
+    const modalities = readListFromDaimo('modality');
+    const endpointBehaviors = readListFromDaimo('endpointBehavior');
+    const libraries = [...(library ? [library] : [])];
 
     const unique = (values: string[]) => Array.from(new Set(values.filter(Boolean)));
 
@@ -400,15 +402,16 @@ export class DashboardMlBrowserService {
       assetType: readText(['asset:prop:type', 'type'], 'machineLearning'),
       contentType,
       byteSize: readText(['asset:prop:byteSize', 'byteSize']),
-      format: readText(['format', 'asset:prop:format', 'daimo:format'], this.firstString(dataAddress['type']) || ''),
+      format: readText(['format', 'asset:prop:format', 'dct:format', 'dcterms:format', 'http://purl.org/dc/terms/format'], this.firstString(dataAddress['type']) || ''),
       keywords: unique(keywords),
       licenses: unique(licenses),
       languages: unique(languages),
       tasks: unique(tasks),
+      taskTypes: unique(taskTypes),
       subtasks: unique(subtasks),
-      algorithms: unique(algorithms),
+      modalities: unique(modalities),
+      endpointBehaviors: unique(endpointBehaviors),
       libraries: unique(libraries),
-      frameworks: unique(frameworks),
       modelType: '',
       storageType: this.firstString(dataAddress['type'], dataAddress['@type']) || '',
       fileName: this.firstString(dataAddress['keyName'], dataAddress['s3Key'], dataAddress['fileName']) || '',
@@ -447,32 +450,31 @@ export class DashboardMlBrowserService {
       params.push(`task=${encodeURIComponent(filters.tasks.join(','))}`);
     }
 
+    if (filters?.taskTypes?.length) {
+      params.push(`tasktype=${encodeURIComponent(filters.taskTypes.join(','))}`);
+    }
+
+    if (filters?.subtasks?.length) {
+      params.push(`subtask=${encodeURIComponent(filters.subtasks.join(','))}`);
+    }
+
     if (filters?.libraries?.length) {
       params.push(`library=${encodeURIComponent(filters.libraries.join(','))}`);
     }
 
-    if (filters?.frameworks?.length) {
-      params.push(`library=${encodeURIComponent(filters.frameworks.join(','))}`);
+    if (filters?.modalities?.length) {
+      params.push(`modality=${encodeURIComponent(filters.modalities.join(','))}`);
+    }
+
+    if (filters?.endpointBehaviors?.length) {
+      params.push(`endpointbehavior=${encodeURIComponent(filters.endpointBehaviors.join(','))}`);
     }
 
     if (filters?.formats?.length) {
-      params.push(`filter=contenttype=${encodeURIComponent(filters.formats.join(','))}`);
+      params.push(`format=${encodeURIComponent(filters.formats.join(','))}`);
     }
 
     return params.join('&');
-  }
-
-  private hasActiveExternalFilters(filters?: MlGuiAssetFilter, searchTerm?: string): boolean {
-    return !!(
-      (searchTerm && searchTerm.trim().length > 0) ||
-      (filters?.licenses && filters.licenses.length > 0) ||
-      (filters?.languages && filters.languages.length > 0) ||
-      (filters?.tasks && filters.tasks.length > 0) ||
-      (filters?.libraries && filters.libraries.length > 0) ||
-      (filters?.frameworks && filters.frameworks.length > 0) ||
-      (filters?.formats && filters.formats.length > 0) ||
-      (filters?.assetSources && filters.assetSources.length > 0)
-    );
   }
 
   private extractTransferFormatFromCatalogDataset(dataset: Record<string, unknown>): string {
@@ -493,7 +495,7 @@ export class DashboardMlBrowserService {
   }
 
   private extractDatasetByteSize(dataset: Record<string, unknown>): string {
-    const candidates = [dataset['dcat:byteSize'], dataset['byteSize'], dataset['https://pionera.ai/edc/daimo#byteSize']];
+    const candidates = [dataset['dcat:byteSize'], dataset['byteSize']];
     return this.firstString(...candidates) || '';
   }
 
@@ -562,8 +564,6 @@ export class DashboardMlBrowserService {
 
     const explicitType = this.firstString(
       dataset['storageType'],
-      dataset['daimo:storage_type'],
-      dataset['https://pionera.ai/edc/daimo#storage_type'],
       dataset['edc:dataAddressType'],
     );
     if (explicitType) {
@@ -632,7 +632,13 @@ export class DashboardMlBrowserService {
         (asset.id || '').toLowerCase().includes(term) ||
         (asset.description || '').toLowerCase().includes(term) ||
         (asset.shortDescription || '').toLowerCase().includes(term) ||
-        (asset.keywords || []).some(keyword => keyword.toLowerCase().includes(term)),
+        (asset.keywords || []).some(keyword => keyword.toLowerCase().includes(term)) ||
+        (asset.tasks || []).some(task => task.toLowerCase().includes(term)) ||
+        (asset.taskTypes || []).some(taskType => taskType.toLowerCase().includes(term)) ||
+        (asset.subtasks || []).some(subtask => subtask.toLowerCase().includes(term)) ||
+        (asset.modalities || []).some(modality => modality.toLowerCase().includes(term)) ||
+        (asset.endpointBehaviors || []).some(endpointBehavior => endpointBehavior.toLowerCase().includes(term)) ||
+        (asset.libraries || []).some(library => library.toLowerCase().includes(term)),
       );
     }
 
@@ -645,16 +651,28 @@ export class DashboardMlBrowserService {
     if (filters?.tasks?.length) {
       result = result.filter(asset => (asset.tasks || []).some(task => filters.tasks!.includes(task)));
     }
+    if (filters?.taskTypes?.length) {
+      result = result.filter(asset => (asset.taskTypes || []).some(taskType => filters.taskTypes!.includes(taskType)));
+    }
+    if (filters?.subtasks?.length) {
+      result = result.filter(asset => (asset.subtasks || []).some(subtask => filters.subtasks!.includes(subtask)));
+    }
+    if (filters?.modalities?.length) {
+      result = result.filter(asset => (asset.modalities || []).some(modality => filters.modalities!.includes(modality)));
+    }
+    if (filters?.endpointBehaviors?.length) {
+      result = result.filter(asset =>
+        (asset.endpointBehaviors || []).some(endpointBehavior => filters.endpointBehaviors!.includes(endpointBehavior)),
+      );
+    }
     if (filters?.libraries?.length) {
       result = result.filter(asset => (asset.libraries || []).some(library => filters.libraries!.includes(library)));
     }
-    if (filters?.frameworks?.length) {
-      result = result.filter(asset =>
-        (asset.frameworks || []).some(framework => filters.frameworks!.includes(framework)),
-      );
-    }
     if (filters?.formats?.length) {
       result = result.filter(asset => !!asset.format && filters.formats!.includes(asset.format));
+    }
+    if (filters?.storageTypes?.length) {
+      result = result.filter(asset => !!asset.storageType && filters.storageTypes!.includes(asset.storageType));
     }
     if (filters?.assetSources?.length) {
       result = result.filter(asset => {
@@ -727,6 +745,47 @@ export class DashboardMlBrowserService {
       return {};
     }
     return value as Record<string, unknown>;
+  }
+
+  private extractDaimoMetadata(source: Record<string, unknown>): Record<string, unknown> {
+    const rawAssetData = source['assetData']
+      || source['edc:assetData']
+      || source['https://w3id.org/edc/v0.0.1/ns/assetData'];
+    const assetData = this.normalizeAssetData(rawAssetData);
+
+    return this.asRecord(assetData['JS_DAIMO_Model'] || assetData['JS_DAIMO_Dataset']);
+  }
+
+  private normalizeAssetData(assetData: unknown): Record<string, unknown> {
+    if (typeof assetData === 'string') {
+      try {
+        return this.asRecord(JSON.parse(assetData));
+      } catch {
+        return {};
+      }
+    }
+
+    return this.asRecord(assetData);
+  }
+
+  private readFirstString(sources: Record<string, unknown>[], keys: string[]): string {
+    for (const source of sources) {
+      const value = this.firstString(...keys.map(key => source[key]));
+      if (value) {
+        return value;
+      }
+    }
+    return '';
+  }
+
+  private readFirstList(sources: Record<string, unknown>[], keys: string[]): string[] {
+    for (const source of sources) {
+      const value = this.readCatalogList(source, keys);
+      if (value.length > 0) {
+        return value;
+      }
+    }
+    return [];
   }
 
   private readCatalogList(dataset: Record<string, unknown>, keys: string[]): string[] {

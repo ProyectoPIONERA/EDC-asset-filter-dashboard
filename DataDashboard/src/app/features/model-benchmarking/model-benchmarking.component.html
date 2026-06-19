@@ -68,8 +68,12 @@
                 />
                 <span class="label-text" [class.opacity-60]="isAssetDisabledForSelection(asset) && !isAssetSelected(asset.id)">
                   <span class="font-semibold">{{ asset.name }}</span>
-                  <span class="badge badge-xs ml-2" [class.badge-success]="(asset.inputFeatures?.length || 0) > 0" [class.badge-warning]="(asset.inputFeatures?.length || 0) === 0">
-                    {{ (asset.inputFeatures?.length || 0) > 0 ? 'schema' : 'no schema' }}
+                  <span class="badge badge-xs ml-2" [class.badge-success]="(asset.inputSchemaFields?.length || 0) > 0" [class.badge-warning]="(asset.inputSchemaFields?.length || 0) === 0">
+                    {{ (asset.inputSchemaFields?.length || 0) > 0 ? 'schema' : 'no schema' }}
+                  </span>
+                  <span class="badge badge-xs ml-1 badge-outline">{{ asset.requestShape || 'single' }}</span>
+                  <span class="badge badge-xs ml-1" [class.badge-accent]="asset.benchmarkModelType === 'metric'" [class.badge-ghost]="asset.benchmarkModelType !== 'metric'">
+                    {{ asset.benchmarkModelType || 'output' }}
                   </span>
                   <span class="badge badge-xs ml-1 badge-ghost">{{ getAssetTaskLabel(asset) }}</span>
                   <span class="block text-xs opacity-70">{{ asset.id }}</span>
@@ -191,20 +195,20 @@
         <button class="btn btn-xs btn-soft w-fit" [disabled]="runningBenchmark || runningValidation || loadingDatasetFromDataspace" (click)="clearDataset()">Clear Dataset</button>
       }
 
-      <div class="divider my-0">Mapping</div>
+      <div class="divider my-0">Dataset schema</div>
 
       <div class="grid gap-2">
         <div class="rounded-lg border border-base-content/10 bg-base-200/60 p-3 text-xs opacity-90">
-          Mapping tells benchmark where to read values.
+          Dataset metadata provides the input and label fields used for benchmarking.
           <br />
-          Use dot notation like <code>input</code>, <code>target.label</code>, <code>result.label</code>.
+          Inputs must match the selected model <code>inputSchema</code>; these fields are only fallback/advanced overrides.
           <br />
-          If you do not set expected/prediction paths, benchmark still runs with latency/success metrics only.
+          If no label/prediction path is set, benchmark still runs with latency/success metrics only.
         </div>
 
         <div class="space-y-1">
           <label class="input input-bordered flex items-center gap-2">
-            <span class="text-xs font-semibold opacity-80 w-28">Input path</span>
+            <span class="text-xs font-semibold opacity-80 w-28">Input field</span>
             <input
               class="grow"
               type="text"
@@ -214,17 +218,15 @@
             />
           </label>
           <div class="text-xs opacity-75 px-1">
-            Where model input is inside each dataset row.
+            Dataset field declared by <code>daimo:input</code>.
             <br />
-            Leave empty when each row already matches the model input schema.
-            <br />
-            Example: row has an <code>input</code> field -> set <code>inputPath=input</code>.
+            Leave empty when each row already matches the selected model schema.
           </div>
         </div>
 
         <div class="space-y-1">
           <label class="input input-bordered flex items-center gap-2">
-            <span class="text-xs font-semibold opacity-80 w-28">Expected path</span>
+            <span class="text-xs font-semibold opacity-80 w-28">Label field</span>
             <input
               class="grow"
               type="text"
@@ -234,7 +236,7 @@
             />
           </label>
           <div class="text-xs opacity-75 px-1">
-            Ground-truth label/value in the dataset row (for example <code>expected_label</code> or <code>target</code>).
+            Ground-truth field declared by <code>daimo:label</code>.
             <br />
             Only needed if you want accuracy %.
           </div>
@@ -252,9 +254,9 @@
             />
           </label>
           <div class="text-xs opacity-75 px-1">
-            Prediction field in model response JSON (for example <code>result.label</code> or <code>result.value</code>).
+            Advanced response mapping for accuracy, for example <code>result.label</code> or <code>result.value</code>.
             <br />
-            Required only when <code>expectedPath</code> is set.
+            Required only when a label field is set.
           </div>
         </div>
 
@@ -262,6 +264,33 @@
           <span class="text-xs font-semibold opacity-80 w-28">Timeout (ms)</span>
           <input class="grow" type="number" min="1000" step="500" [(ngModel)]="requestTimeoutMs" [disabled]="runningBenchmark || runningValidation || loadingDatasetFromDataspace" />
         </label>
+      </div>
+
+      <div class="divider my-0">Metrics</div>
+
+      <div class="grid gap-2">
+        @if (availableMetrics.length > 0) {
+          <div class="flex flex-wrap gap-1">
+            @for (metric of availableMetrics; track metric) {
+              <button
+                class="btn btn-xs"
+                [class.btn-primary]="isMetricSelected(metric)"
+                [class.btn-soft]="!isMetricSelected(metric)"
+                [disabled]="runningBenchmark || runningValidation || loadingDatasetFromDataspace"
+                (click)="toggleMetric(metric)"
+              >
+                {{ metric }}
+              </button>
+            }
+          </div>
+          <div class="text-xs opacity-75">
+            Ranking uses selected metrics. Click a metric column in results to rank by it.
+          </div>
+        } @else {
+          <div class="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs">
+            Select compatible classification/regression output models or metric/evaluator models with <code>daimo:metrics</code>.
+          </div>
+        }
       </div>
 
       <div class="card-actions justify-between">
@@ -322,15 +351,9 @@
           <div><b>P95 ms</b>: 95th percentile latency (tail latency; lower is better).</div>
           <div><b>Req/s</b>: throughput (successful requests per second; higher is better).</div>
           <div><b>Accuracy %</b>: shown only when both Expected path and Prediction path are provided and resolvable.</div>
-          <div><b>Latency score</b>: relative 0-100 score computed from average latency among compared models (fastest gets highest).</div>
-          <div>
-            <b>Final score</b>:
-            <br />
-            - with accuracy: <code>0.60 * accuracy + 0.25 * success + 0.15 * latencyScore</code>
-            <br />
-            - without accuracy: <code>0.70 * success + 0.30 * latencyScore</code>
-          </div>
-          <div class="opacity-80">Higher final score is better. Score is relative to the models in the current run.</div>
+          <div><b>Selected metrics</b>: output models calculate local classification/regression metrics; metric/evaluator models read returned metrics declared by <code>daimo:metrics</code>.</div>
+          <div><b>Score</b>: relative 0-100 ranking score using the active ranking metric, success rate, and latency. Lower-is-better metrics such as RMSE/MAE/MSE are inverted.</div>
+          <div class="opacity-80">Click a metric column to use it as the ranking metric.</div>
         </div>
       </details>
 
@@ -338,6 +361,7 @@
         <div class="rounded-xl border border-success/40 bg-success/10 p-3 text-sm">
           <div class="font-semibold">Best Model: {{ topResult.modelName }}</div>
           <div>Score: {{ topResult.score | number:'1.2-2' }}</div>
+          <div>Ranking Metric: {{ rankingMetric === 'score' ? 'recommended' : rankingMetric }}</div>
           <div>Success Rate: {{ topResult.successRate | number:'1.2-2' }}%</div>
           <div>Avg Latency: {{ topResult.averageLatencyMs | number:'1.2-2' }} ms</div>
           @if (topResult.accuracyPercent !== null) {
@@ -353,14 +377,29 @@
               <tr>
                 <th>#</th>
                 <th>Model</th>
-                <th>Success %</th>
-                <th>Avg ms</th>
-                <th>P95 ms</th>
-                <th>Req/s</th>
+                <th>
+                  <button class="btn btn-xs btn-ghost" (click)="sortResultsBy('successRate')">Success %</button>
+                </th>
+                <th>
+                  <button class="btn btn-xs btn-ghost" (click)="sortResultsBy('averageLatencyMs')">Avg ms</button>
+                </th>
+                <th>
+                  <button class="btn btn-xs btn-ghost" (click)="sortResultsBy('p95LatencyMs')">P95 ms</button>
+                </th>
+                <th>
+                  <button class="btn btn-xs btn-ghost" (click)="sortResultsBy('throughputRps')">Req/s</button>
+                </th>
                 @if (hasAccuracy) {
                   <th>Accuracy %</th>
                 }
-                <th>Score</th>
+                @for (metric of selectedMetrics; track metric) {
+                  <th>
+                    <button class="btn btn-xs btn-ghost" (click)="sortResultsBy(metric)">{{ metric }}</button>
+                  </th>
+                }
+                <th>
+                  <button class="btn btn-xs btn-ghost" (click)="sortResultsBy('score')">Score</button>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -369,6 +408,9 @@
                   <td>{{ result.rank }}</td>
                   <td>
                     <div class="font-semibold">{{ result.modelName }}</div>
+                    <div class="badge badge-xs" [class.badge-accent]="result.benchmarkModelType === 'metric'" [class.badge-ghost]="result.benchmarkModelType !== 'metric'">
+                      {{ result.benchmarkModelType }}
+                    </div>
                     <div class="text-xs opacity-70">{{ result.assetId }}</div>
                   </td>
                   <td>{{ result.successRate | number:'1.2-2' }}</td>
@@ -379,6 +421,15 @@
                     <td>
                       @if (result.accuracyPercent !== null) {
                         {{ result.accuracyPercent | number:'1.2-2' }}
+                      } @else {
+                        -
+                      }
+                    </td>
+                  }
+                  @for (metric of selectedMetrics; track metric) {
+                    <td>
+                      @if (result.metrics[metric] !== undefined) {
+                        {{ result.metrics[metric] | number:'1.4-4' }}
                       } @else {
                         -
                       }

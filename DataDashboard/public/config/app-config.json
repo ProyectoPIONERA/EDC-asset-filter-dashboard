@@ -24,7 +24,7 @@
       "text": "Model Benchmarking",
       "materialSymbol": "query_stats",
       "routerPath": "model-benchmarking",
-      "viewDescription": "Compare multiple executable models on the same dataset with client-side latency, success, throughput, and optional accuracy metrics."
+      "viewDescription": "Compare compatible executable models on one dataset with latency, throughput, local classification/regression metrics, and metric/evaluator outputs."
     },
     {
       "text": "Model Observer",

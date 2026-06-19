@@ -110,12 +110,13 @@
                     [checked]="config === (stateService.currentEdcConfig$ | async)"
                     (click)="selectConnector(config)"
                   />
-                  <div
+                  <button
+                    type="button"
                     class="btn btn-error btn-soft absolute left-[100%] hidden group-hover:inline-flex"
                     (click)="deleteConnector(config)"
                   >
                     <span class="material-symbols-rounded">delete</span>
-                  </div>
+                  </button>
                 </li>
               }
               <div class="divider mb-2 mt-0"></div>

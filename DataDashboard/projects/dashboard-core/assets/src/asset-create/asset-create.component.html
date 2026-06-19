@@ -93,15 +93,26 @@
           </label>
 
           <legend class="fieldset-label">Task</legend>
-          <label class="select w-full">
-            <span class="label">Task</span>
-            <select class="input" formControlName="mlTask">
-              <option value="">Not selected</option>
-              @for (task of mlTaskOptions; track task) {
-                <option [value]="task">{{ task }}</option>
-              }
-            </select>
-          </label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <label class="select w-full">
+              <span class="label">Task Category</span>
+              <select class="input" formControlName="mlTask">
+                <option value="">Not selected</option>
+                @for (task of mlTaskOptions; track task) {
+                  <option [value]="task">{{ task }}</option>
+                }
+              </select>
+            </label>
+            <label class="select w-full">
+              <span class="label">Task Type</span>
+              <select class="input" formControlName="mlTaskType">
+                <option value="">Not selected</option>
+                @for (taskType of mlTaskTypeOptions; track taskType) {
+                  <option [value]="taskType">{{ taskType }}</option>
+                }
+              </select>
+            </label>
+          </div>
 
           <legend class="fieldset-label">Modality</legend>
           <div class="flex flex-wrap gap-2">
@@ -116,6 +127,37 @@
                 <span class="label-text">{{ modality }}</span>
               </label>
             }
+          </div>
+
+          <legend class="fieldset-label">Endpoint Behavior</legend>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <label class="select w-full">
+              <span class="label">Subtask</span>
+              <select class="input" formControlName="mlSubtask">
+                <option value="">Not selected</option>
+                @for (subtask of mlSubtaskOptions; track subtask) {
+                  <option [value]="subtask">{{ subtask }}</option>
+                }
+              </select>
+            </label>
+            <label class="select w-full">
+              <span class="label">Behavior</span>
+              <select class="input" formControlName="mlEndpointBehavior">
+                <option value="">Not selected</option>
+                @for (endpointBehavior of mlEndpointBehaviorOptions; track endpointBehavior) {
+                  <option [value]="endpointBehavior">{{ endpointBehavior }}</option>
+                }
+              </select>
+            </label>
+            <label class="select w-full">
+              <span class="label">Request Shape</span>
+              <select class="input" formControlName="mlRequestShape">
+                <option value="">Not selected</option>
+                @for (requestShape of mlRequestShapeOptions; track requestShape) {
+                  <option [value]="requestShape">{{ requestShape }}</option>
+                }
+              </select>
+            </label>
           </div>
 
           <legend class="fieldset-label">Keywords</legend>
@@ -190,18 +232,6 @@
                 </div>
               }
 
-              <legend class="fieldset-label">Architecture / Family</legend>
-              <label class="input input-bordered flex items-center w-full">
-                <span class="material-symbols-rounded opacity-50">account_tree</span>
-                <input type="text" class="grow" placeholder="ViT, CNN, Llama-like, XGBoost" formControlName="mlArchitecture" />
-              </label>
-
-              <legend class="fieldset-label">Base Model</legend>
-              <label class="input input-bordered flex items-center w-full">
-                <span class="material-symbols-rounded opacity-50">model_training</span>
-                <input type="text" class="grow" placeholder="e.g. bert-base-uncased" formControlName="mlBaseModel" />
-              </label>
-
               <legend class="fieldset-label">Model Size</legend>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <label class="input input-bordered flex items-center w-full">
@@ -223,23 +253,14 @@
                 </label>
               </div>
 
-              <legend class="fieldset-label">Performance Claims</legend>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <legend class="fieldset-label">Evaluation Metadata</legend>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <label class="select w-full">
-                  <span class="label">Metric</span>
+                  <span class="label">Supported Metric</span>
                   <select class="input" formControlName="mlPerformanceMetric">
                     <option value="">Not selected</option>
                     @for (metric of mlMetricOptions; track metric) {
                       <option [value]="metric">{{ metric }}</option>
-                    }
-                  </select>
-                </label>
-                <label class="select w-full">
-                  <span class="label">Dataset</span>
-                  <select class="input" formControlName="mlPerformanceDataset">
-                    <option value="">Not selected</option>
-                    @for (dataset of mlDatasetOptions; track dataset) {
-                      <option [value]="dataset">{{ dataset }}</option>
                     }
                   </select>
                 </label>
@@ -386,14 +407,14 @@
                   }
                 </div>
 
-                <label class="fieldset-label">JSON Schema (Advanced)</label>
+                <div class="fieldset-label">JSON Schema (Advanced)</div>
                 <textarea
                   class="textarea textarea-bordered w-full font-mono text-xs"
                   rows="8"
                   placeholder='JSON Schema object, e.g. { "type":"object", "properties": { "text": { "type":"string" } }, "required": ["text"] }'
                   formControlName="mlInputSchema"
                 ></textarea>
-                <label class="fieldset-label">Input Example JSON</label>
+                <div class="fieldset-label">Input Example JSON</div>
                 <textarea
                   class="textarea textarea-bordered w-full font-mono text-xs"
                   rows="5"

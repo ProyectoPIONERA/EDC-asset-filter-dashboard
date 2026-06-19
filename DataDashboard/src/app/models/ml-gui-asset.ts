@@ -12,10 +12,11 @@ export interface MlGuiAsset {
   licenses: string[];
   languages: string[];
   tasks: string[];
+  taskTypes: string[];
   subtasks: string[];
-  algorithms: string[];
+  modalities: string[];
+  endpointBehaviors: string[];
   libraries: string[];
-  frameworks: string[];
   modelType: string;
   storageType?: string;
   fileName?: string;
@@ -33,19 +34,26 @@ export interface MlGuiAsset {
   originator: string;
 }
 
-export interface InputFeatureSpec {
+export interface InputSchemaFieldSpec {
   name: string;
   type: string;
   required?: boolean;
   description?: string;
 }
 
+export type ModelRequestShape = 'single' | 'batch';
+export type BenchmarkModelType = 'output' | 'metric';
+
 export interface MlGuiAssetFilter {
   licenses?: string[];
   languages?: string[];
   tasks?: string[];
+  taskTypes?: string[];
   libraries?: string[];
-  frameworks?: string[];
+  subtasks?: string[];
+  modalities?: string[];
+  endpointBehaviors?: string[];
+  storageTypes?: string[];
   assetSources?: string[];
   formats?: string[];
 }
@@ -59,9 +67,12 @@ export interface ExecutableAsset {
   tasks?: string[];
   isLocal: boolean;
   inputSchema?: Record<string, unknown> | null;
-  inputFeatures?: InputFeatureSpec[];
+  inputSchemaFields?: InputSchemaFieldSpec[];
   inputSchemaDraft?: string;
   inputExample?: unknown;
+  requestShape?: ModelRequestShape;
+  benchmarkModelType?: BenchmarkModelType;
+  supportedMetrics?: string[];
 }
 
 export interface ModelExecutionRequest {

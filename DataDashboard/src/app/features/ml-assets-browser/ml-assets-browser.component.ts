@@ -59,19 +59,27 @@ export class MlAssetsBrowserComponent implements OnInit, OnDestroy {
   manualCounterPartyAddress?: string;
 
   selectedTasks: string[] = [];
+  selectedTaskTypes: string[] = [];
+  selectedSubtasks: string[] = [];
+  selectedModalities: string[] = [];
+  selectedEndpointBehaviors: string[] = [];
   selectedLicenses: string[] = [];
   selectedLanguages: string[] = [];
   selectedLibraries: string[] = [];
-  selectedFrameworks: string[] = [];
   selectedFormats: string[] = [];
+  selectedStorageTypes: string[] = [];
   selectedAssetSources: string[] = [];
 
   availableTasks: string[] = [];
+  availableTaskTypes: string[] = [];
+  availableSubtasks: string[] = [];
+  availableModalities: string[] = [];
+  availableEndpointBehaviors: string[] = [];
   availableLicenses: string[] = [];
   availableLanguages: string[] = [];
   availableLibraries: string[] = [];
-  availableFrameworks: string[] = [];
   availableFormats: string[] = [];
+  availableStorageTypes: string[] = [];
   availableAssetSources: string[] = [];
   private currentConnectorName = '';
 
@@ -79,19 +87,19 @@ export class MlAssetsBrowserComponent implements OnInit, OnDestroy {
     combineLatest([this.stateService.currentEdcConfig$, this.stateService.edcConfigs$])
       .pipe(takeUntil(this.destroy$))
       .subscribe(([currentConfig, configs]) => {
-      const connectorName = currentConfig?.connectorName || '';
-      const availableCounterParties = (configs || []).filter(config => config.connectorName !== connectorName);
+        const connectorName = currentConfig?.connectorName || '';
+        const availableCounterParties = (configs || []).filter(config => config.connectorName !== connectorName);
 
-      if (connectorName === this.currentConnectorName && this.selectedConnector) {
-        return;
-      }
+        if (connectorName === this.currentConnectorName && this.selectedConnector) {
+          return;
+        }
 
-      this.currentConnectorName = connectorName;
-      this.selectedConnector = availableCounterParties[0];
-      this.manualCounterPartyAddress = undefined;
-      this.loadFilterBaseline();
-      this.loadAssets();
-    });
+        this.currentConnectorName = connectorName;
+        this.selectedConnector = availableCounterParties[0];
+        this.manualCounterPartyAddress = undefined;
+        this.loadFilterBaseline();
+        this.loadAssets();
+      });
   }
 
   onConnectorSelected(): void {
@@ -117,23 +125,8 @@ export class MlAssetsBrowserComponent implements OnInit, OnDestroy {
     this.loadAssets();
   }
 
-  onTasksChanged(tasks: string[]): void {
-    this.selectedTasks = tasks;
-    this.loadAssets();
-  }
-
-  onLicensesChanged(licenses: string[]): void {
-    this.selectedLicenses = licenses;
-    this.loadAssets();
-  }
-
   toggleLicense(license: string, selected: boolean): void {
     this.selectedLicenses = this.toggleValue(this.selectedLicenses, license, selected);
-    this.loadAssets();
-  }
-
-  onLanguagesChanged(languages: string[]): void {
-    this.selectedLanguages = languages;
     this.loadAssets();
   }
 
@@ -147,8 +140,23 @@ export class MlAssetsBrowserComponent implements OnInit, OnDestroy {
     this.loadAssets();
   }
 
-  onLibrariesChanged(libraries: string[]): void {
-    this.selectedLibraries = libraries;
+  toggleTaskType(taskType: string, selected: boolean): void {
+    this.selectedTaskTypes = this.toggleValue(this.selectedTaskTypes, taskType, selected);
+    this.loadAssets();
+  }
+
+  toggleSubtask(subtask: string, selected: boolean): void {
+    this.selectedSubtasks = this.toggleValue(this.selectedSubtasks, subtask, selected);
+    this.loadAssets();
+  }
+
+  toggleModality(modality: string, selected: boolean): void {
+    this.selectedModalities = this.toggleValue(this.selectedModalities, modality, selected);
+    this.loadAssets();
+  }
+
+  toggleEndpointBehavior(endpointBehavior: string, selected: boolean): void {
+    this.selectedEndpointBehaviors = this.toggleValue(this.selectedEndpointBehaviors, endpointBehavior, selected);
     this.loadAssets();
   }
 
@@ -157,28 +165,13 @@ export class MlAssetsBrowserComponent implements OnInit, OnDestroy {
     this.loadAssets();
   }
 
-  onFrameworksChanged(frameworks: string[]): void {
-    this.selectedFrameworks = frameworks;
-    this.loadAssets();
-  }
-
-  toggleFramework(framework: string, selected: boolean): void {
-    this.selectedFrameworks = this.toggleValue(this.selectedFrameworks, framework, selected);
-    this.loadAssets();
-  }
-
-  onFormatsChanged(formats: string[]): void {
-    this.selectedFormats = formats;
-    this.loadAssets();
-  }
-
   toggleFormat(format: string, selected: boolean): void {
     this.selectedFormats = this.toggleValue(this.selectedFormats, format, selected);
     this.loadAssets();
   }
 
-  onAssetSourcesChanged(assetSources: string[]): void {
-    this.selectedAssetSources = assetSources;
+  toggleStorageType(storageType: string, selected: boolean): void {
+    this.selectedStorageTypes = this.toggleValue(this.selectedStorageTypes, storageType, selected);
     this.loadAssets();
   }
 
@@ -353,11 +346,15 @@ export class MlAssetsBrowserComponent implements OnInit, OnDestroy {
   clearFilters(): void {
     this.searchTerm = '';
     this.selectedTasks = [];
+    this.selectedTaskTypes = [];
+    this.selectedSubtasks = [];
+    this.selectedModalities = [];
+    this.selectedEndpointBehaviors = [];
     this.selectedLicenses = [];
     this.selectedLanguages = [];
     this.selectedLibraries = [];
-    this.selectedFrameworks = [];
     this.selectedFormats = [];
+    this.selectedStorageTypes = [];
     this.selectedAssetSources = [];
     this.loadAssets();
   }
@@ -366,11 +363,15 @@ export class MlAssetsBrowserComponent implements OnInit, OnDestroy {
     return (
       this.searchTerm.trim().length > 0 ||
       this.selectedTasks.length > 0 ||
+      this.selectedTaskTypes.length > 0 ||
+      this.selectedSubtasks.length > 0 ||
+      this.selectedModalities.length > 0 ||
+      this.selectedEndpointBehaviors.length > 0 ||
       this.selectedLicenses.length > 0 ||
       this.selectedLanguages.length > 0 ||
       this.selectedLibraries.length > 0 ||
-      this.selectedFrameworks.length > 0 ||
       this.selectedFormats.length > 0 ||
+      this.selectedStorageTypes.length > 0 ||
       this.selectedAssetSources.length > 0
     );
   }
@@ -398,11 +399,15 @@ export class MlAssetsBrowserComponent implements OnInit, OnDestroy {
         next: assets => {
           this.allAssets = assets;
           this.availableTasks = this.extractUnique(assets.flatMap(asset => asset.tasks || []));
+          this.availableTaskTypes = this.extractUnique(assets.flatMap(asset => asset.taskTypes || []));
+          this.availableSubtasks = this.extractUnique(assets.flatMap(asset => asset.subtasks || []));
+          this.availableModalities = this.extractUnique(assets.flatMap(asset => asset.modalities || []));
+          this.availableEndpointBehaviors = this.extractUnique(assets.flatMap(asset => asset.endpointBehaviors || []));
           this.availableLicenses = this.extractUnique(assets.flatMap(asset => asset.licenses || []));
           this.availableLanguages = this.extractUnique(assets.flatMap(asset => asset.languages || []));
           this.availableLibraries = this.extractUnique(assets.flatMap(asset => asset.libraries || []));
-          this.availableFrameworks = this.extractUnique(assets.flatMap(asset => asset.frameworks || []));
           this.availableFormats = this.extractUnique(assets.map(asset => asset.format || '').filter(Boolean));
+          this.availableStorageTypes = this.extractUnique(assets.map(asset => asset.storageType || '').filter(Boolean));
           this.availableAssetSources = this.extractUnique(
             assets.map(asset => (asset.isLocal ? 'Local Asset' : 'External Asset')),
           );
@@ -436,9 +441,13 @@ export class MlAssetsBrowserComponent implements OnInit, OnDestroy {
       licenses: [...this.selectedLicenses],
       languages: [...this.selectedLanguages],
       tasks: [...this.selectedTasks],
+      taskTypes: [...this.selectedTaskTypes],
+      subtasks: [...this.selectedSubtasks],
+      modalities: [...this.selectedModalities],
+      endpointBehaviors: [...this.selectedEndpointBehaviors],
       libraries: [...this.selectedLibraries],
-      frameworks: [...this.selectedFrameworks],
       formats: [...this.selectedFormats],
+      storageTypes: [...this.selectedStorageTypes],
       assetSources: [...this.selectedAssetSources],
     };
   }
